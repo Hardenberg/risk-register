@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
+    />
+    <meta name="theme-color" content="#16182d" />
+    <title>Risk Register · Server</title>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark app-navbar">
+      <div class="container-xl py-2">
+        <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold" href="/">
+          <span class="brand-mark">✓</span>
+          Risk Register
+        </a>
+        <div class="d-flex align-items-center gap-3 text-white-50 small">
+          <span class="live-dot"></span>
+          Fastify · SQLite
+          <a class="btn btn-sm btn-outline-light" href="/docs">API Docs</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container-xl py-5">
+      <section class="hero mb-4">
+        <div>
+          <p class="eyebrow mb-2">RISIKOMANAGEMENT</p>
+          <h1 class="display-6 fw-bold mb-2">Risiken im Blick</h1>
+          <p class="text-secondary mb-0">Eine kompakte Live-Ansicht der Daten aus der Risk-Register-API.</p>
+        </div>
+        <button id="refresh-button" class="btn btn-primary px-4" type="button">
+          <span id="refresh-spinner" class="spinner-border spinner-border-sm d-none me-2" aria-hidden="true"></span>
+          Aktualisieren
+        </button>
+      </section>
+
+      <div id="error-alert" class="alert alert-danger d-none" role="alert"></div>
+
+      <section class="row g-3 mb-4" aria-label="Kennzahlen">
+        <div class="col-6 col-lg-3">
+          <div class="card stat-card h-100"><div class="card-body">
+            <p class="stat-label">Risiken gesamt</p><p id="total-count" class="stat-value">–</p>
+          </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="card stat-card stat-critical h-100"><div class="card-body">
+            <p class="stat-label">Kritisch</p><p id="critical-count" class="stat-value text-danger">–</p>
+          </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="card stat-card h-100"><div class="card-body">
+            <p class="stat-label">In Bearbeitung</p><p id="active-count" class="stat-value text-primary">–</p>
+          </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="card stat-card h-100"><div class="card-body">
+            <p class="stat-label">Geschlossen</p><p id="closed-count" class="stat-value text-success">–</p>
+          </div></div>
+        </div>
+      </section>
+
+      <section class="card table-card">
+        <div class="card-header bg-white border-0 p-4">
+          <div class="row g-3 align-items-center">
+            <div class="col-lg-7">
+              <h2 class="h5 fw-bold mb-1">Alle Risiken</h2>
+              <p class="text-secondary small mb-0">Nach aktuellem Risikowert priorisiert</p>
+            </div>
+            <div class="col-lg-5">
+              <label class="visually-hidden" for="risk-search">Risiken durchsuchen</label>
+              <input id="risk-search" class="form-control" type="search" placeholder="Referenz, Risiko oder Verantwortliche suchen" />
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Referenz</th><th>Risiko</th><th>Verantwortlich</th><th>Risikowert</th><th>Status</th><th>Fällig</th>
+              </tr>
+            </thead>
+            <tbody id="risk-table-body"></tbody>
+          </table>
+        </div>
+        <div class="card-footer bg-white border-0 px-4 py-3">
+          <small id="result-count" class="text-secondary">Daten werden geladen …</small>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/app.ts"></script>
+  </body>
+</html>

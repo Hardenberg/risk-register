@@ -1,0 +1,147 @@
+:root {
+  --app-navy: #17172d;
+  --app-purple: #6658d9;
+  --app-bg: #f4f5fa;
+}
+
+body {
+  min-height: 100vh;
+  color: #232335;
+  background: var(--app-bg);
+}
+
+.app-navbar {
+  background: var(--app-navy);
+  box-shadow: 0 6px 24px rgb(20 20 45 / 14%);
+}
+
+.brand-mark {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #8f82f5, #5b4ccf);
+  box-shadow: 0 7px 16px rgb(102 88 217 / 35%);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4bd18b;
+  box-shadow: 0 0 0 4px rgb(75 209 139 / 14%);
+}
+
+.hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.eyebrow {
+  color: #79778d;
+  font-size: .69rem;
+  font-weight: 700;
+  letter-spacing: .13em;
+}
+
+.btn-primary {
+  border-color: var(--app-purple);
+  background: var(--app-purple);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  border-color: #5548bd;
+  background: #5548bd;
+}
+
+.stat-card,
+.table-card {
+  border: 1px solid #e6e6ee;
+  border-radius: 1rem;
+  box-shadow: 0 7px 25px rgb(35 35 65 / 5%);
+}
+
+.stat-critical {
+  border-left: 4px solid #dc3545;
+}
+
+.stat-label {
+  margin-bottom: .35rem;
+  color: #777689;
+  font-size: .8rem;
+}
+
+.stat-value {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.table-card {
+  overflow: hidden;
+}
+
+.table thead th {
+  padding: .9rem 1rem;
+  color: #767589;
+  background: #fafafd;
+  border-top: 1px solid #ededf3;
+  border-bottom-color: #e7e7ef;
+  font-size: .68rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: 1rem;
+  border-color: #efeff4;
+}
+
+.reference-badge {
+  color: #4d4c5c !important;
+  border: 1px solid #dedee7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.risk-title {
+  display: block;
+  min-width: 240px;
+}
+
+.owner-avatar {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  color: #5548bd;
+  background: #ebe8ff;
+  font-size: .65rem;
+  font-weight: 700;
+}
+
+.score-column {
+  width: 130px;
+}
+
+.score-label {
+  font-size: .67rem;
+}
+
+.progress {
+  height: 5px;
+  background: #e9e9ef;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

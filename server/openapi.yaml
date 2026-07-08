@@ -1,0 +1,477 @@
+openapi: 3.0.3
+info:
+  title: Risk Register API
+  version: 1.0.0
+  description: >-
+    REST-API zur Verwaltung eines Risikoregisters.
+
+
+    Die API unterstützt das Erfassen, Suchen, Aktualisieren und Löschen von
+    Risiken.
+
+    Risikowerte liegen zwischen 1 und 25 und ergeben sich fachlich aus
+    Eintrittswahrscheinlichkeit × Auswirkung.
+  contact:
+    name: Risk Register Team
+  license:
+    name: Private use
+components:
+  schemas:
+    Risk:
+      title: Risk
+      description: Ein vollständig gespeichertes Risiko.
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Technische, unveränderliche ID des Risikos.
+          example: 01J00000000000000000000001
+        reference:
+          type: string
+          pattern: ^R-\d{3,}$
+          description: Menschenlesbare, automatisch vergebene Risikoreferenz.
+          example: R-024
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Kurze, eindeutige Bezeichnung des Risikos.
+          example: Lieferengpass bei Kernkomponenten
+        category:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Fachliche Risikokategorie.
+          example: Lieferkette
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Für die Behandlung des Risikos verantwortliche Person.
+          example: Lena Vogt
+        initialScore:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Risikowert bei der erstmaligen Erfassung
+            (Eintrittswahrscheinlichkeit × Auswirkung).
+          example: 22
+        currentScore:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Aktuell bewerteter Risikowert.
+          example: 18
+        status:
+          type: string
+          enum:
+            - Offen
+            - In Bearbeitung
+            - Überwacht
+            - Geschlossen
+          description: Aktueller Bearbeitungsstatus des Risikos.
+          example: In Bearbeitung
+        dueDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Geplantes Fälligkeitsdatum im Format YYYY-MM-DD oder null.
+          example: 2026-07-18
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Zeitpunkt der Erfassung im ISO-8601-Format.
+          example: 2026-07-01T08:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Zeitpunkt der letzten Änderung im ISO-8601-Format.
+          example: 2026-07-07T10:30:00.000Z
+      required:
+        - id
+        - reference
+        - title
+        - category
+        - owner
+        - initialScore
+        - currentScore
+        - status
+        - dueDate
+        - createdAt
+        - updatedAt
+      example:
+        id: 01J00000000000000000000001
+        reference: R-024
+        title: Lieferengpass bei Kernkomponenten
+        category: Lieferkette
+        owner: Lena Vogt
+        initialScore: 22
+        currentScore: 18
+        status: In Bearbeitung
+        dueDate: 2026-07-18
+        createdAt: 2026-07-01T08:00:00.000Z
+        updatedAt: 2026-07-07T10:30:00.000Z
+    CreateRisk:
+      title: CreateRisk
+      description: Daten zur Erfassung eines neuen Risikos. Nicht gesetzte optionale
+        Werte werden aus dem Initialwert abgeleitet.
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Kurze, eindeutige Bezeichnung des Risikos.
+          example: Lieferengpass bei Kernkomponenten
+        category:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Fachliche Risikokategorie.
+          example: Lieferkette
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Für die Behandlung des Risikos verantwortliche Person.
+          example: Lena Vogt
+        initialScore:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Risikowert bei der erstmaligen Erfassung
+            (Eintrittswahrscheinlichkeit × Auswirkung).
+          example: 22
+        currentScore:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Aktuell bewerteter Risikowert.
+          example: 18
+        status:
+          type: string
+          enum:
+            - Offen
+            - In Bearbeitung
+            - Überwacht
+            - Geschlossen
+          description: Aktueller Bearbeitungsstatus des Risikos.
+          example: In Bearbeitung
+        dueDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Geplantes Fälligkeitsdatum im Format YYYY-MM-DD oder null.
+          example: 2026-07-18
+      required:
+        - title
+        - category
+        - owner
+        - initialScore
+      example:
+        title: Lieferengpass bei Kernkomponenten
+        category: Lieferkette
+        owner: Lena Vogt
+        initialScore: 22
+        currentScore: 18
+        status: In Bearbeitung
+        dueDate: 2026-07-18
+    UpdateRisk:
+      title: UpdateRisk
+      description: Mindestens ein zu änderndes Feld eines vorhandenen Risikos.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Kurze, eindeutige Bezeichnung des Risikos.
+          example: Lieferengpass bei Kernkomponenten
+        category:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Fachliche Risikokategorie.
+          example: Lieferkette
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Für die Behandlung des Risikos verantwortliche Person.
+          example: Lena Vogt
+        initialScore:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Risikowert bei der erstmaligen Erfassung
+            (Eintrittswahrscheinlichkeit × Auswirkung).
+          example: 22
+        currentScore:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Aktuell bewerteter Risikowert.
+          example: 18
+        status:
+          type: string
+          enum:
+            - Offen
+            - In Bearbeitung
+            - Überwacht
+            - Geschlossen
+          description: Aktueller Bearbeitungsstatus des Risikos.
+          example: In Bearbeitung
+        dueDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Geplantes Fälligkeitsdatum im Format YYYY-MM-DD oder null.
+          example: 2026-07-18
+      example:
+        currentScore: 8
+        status: Überwacht
+    ErrorResponse:
+      title: ErrorResponse
+      description: Einheitliche Fehlerantwort der Risk-Register-API.
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - RISK_NOT_FOUND
+            - INTERNAL_ERROR
+          example: RISK_NOT_FOUND
+        message:
+          type: string
+          example: Das Risiko mit der angegebenen ID wurde nicht gefunden.
+      required:
+        - code
+        - message
+    HealthResponse:
+      title: HealthResponse
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+          example: ok
+      required:
+        - status
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Serverstatus abrufen
+      tags:
+        - System
+      description: Ein einfacher Liveness-Check für den Fastify-Prozess und seine
+        SQLite-Anbindung.
+      responses:
+        "200":
+          description: Der Server ist betriebsbereit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/risks:
+    get:
+      operationId: listRisks
+      summary: Alle Risiken abrufen
+      tags:
+        - Risiken
+      description: Liefert alle Risiken absteigend nach aktuellem Risikowert. Optional
+        kann über mehrere Textfelder gesucht werden.
+      parameters:
+        - schema:
+            type: string
+            maxLength: 200
+          example: Lieferkette
+          in: query
+          name: search
+          required: false
+          description: Freitextsuche in Referenz, Bezeichnung, Kategorie und
+            Verantwortlichem.
+      responses:
+        "200":
+          description: Die gefundenen Risiken, sortiert nach aktuellem Risikowert.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: Die gefundenen Risiken, sortiert nach aktuellem Risikowert.
+                items:
+                  $ref: "#/components/schemas/Risk"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createRisk
+      summary: Ein Risiko erfassen
+      tags:
+        - Risiken
+      description: Erfasst ein neues Risiko. ID, Referenz und Zeitstempel werden
+        serverseitig erzeugt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRisk"
+      responses:
+        "201":
+          description: Das erfolgreich erfasste Risiko.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Risk"
+        "400":
+          description: Die Anfrage enthält ungültige oder unvollständige Daten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/risks/{id}:
+    get:
+      operationId: getRisk
+      summary: Ein Risiko abrufen
+      tags:
+        - Risiken
+      description: Liefert ein einzelnes Risiko anhand seiner technischen ID.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          example: 01J00000000000000000000001
+          in: path
+          name: id
+          required: true
+          description: Technische ID des Risikos.
+      responses:
+        "200":
+          description: Das angeforderte Risiko.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Risk"
+        "404":
+          description: Unter der angegebenen ID wurde kein Risiko gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateRisk
+      summary: Ein Risiko aktualisieren
+      tags:
+        - Risiken
+      description: Aktualisiert die übergebenen Felder eines vorhandenen Risikos.
+        Nicht übergebene Felder bleiben unverändert.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRisk"
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          example: 01J00000000000000000000001
+          in: path
+          name: id
+          required: true
+          description: Technische ID des Risikos.
+      responses:
+        "200":
+          description: Das aktualisierte Risiko.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Risk"
+        "400":
+          description: Die Anfrage enthält ungültige oder unvollständige Daten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unter der angegebenen ID wurde kein Risiko gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteRisk
+      summary: Ein Risiko löschen
+      tags:
+        - Risiken
+      description: Löscht ein Risiko dauerhaft aus dem Register.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          example: 01J00000000000000000000001
+          in: path
+          name: id
+          required: true
+          description: Technische ID des Risikos.
+      responses:
+        "204":
+          description: Das Risiko wurde erfolgreich gelöscht.
+        "404":
+          description: Unter der angegebenen ID wurde kein Risiko gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+servers:
+  - url: http://127.0.0.1:8000
+    description: Lokale Entwicklungsumgebung
+tags:
+  - name: System
+    description: Betriebs- und Verfügbarkeitsinformationen.
+  - name: Risiken
+    description: Erfassen und Verwalten von Risiken im zentralen Register.
+externalDocs:
+  description: Bootstrap-Risikoübersicht öffnen
+  url: http://127.0.0.1:8000/

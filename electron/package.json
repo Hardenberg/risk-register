@@ -1,0 +1,31 @@
+{
+  "name": "risk-register",
+  "version": "1.0.0",
+  "description": "A risk register desktop application",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "npm run build:main && npm run build:renderer",
+    "build:main": "tsc --project tsconfig.electron.json",
+    "build:renderer": "vite build",
+    "dev": "npm run build && electron .",
+    "prestart": "npm run build",
+    "start": "electron .",
+    "postinstall": "install-electron",
+    "typecheck": "tsc --noEmit --project tsconfig.electron.json && tsc --noEmit --project tsconfig.renderer.json"
+  },
+  "private": true,
+  "dependencies": {
+    "@ant-design/icons": "^6.3.2",
+    "antd": "^6.5.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "electron": "^43.1.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.3"
+  }
+}
