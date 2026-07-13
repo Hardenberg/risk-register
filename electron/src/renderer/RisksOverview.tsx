@@ -141,6 +141,7 @@ export function RisksOverview ({
     if (tableState.search) params.set('search', tableState.search)
     if (tableState.status) params.set('status', tableState.status)
     if (tableState.category) params.set('category', tableState.category)
+    if (tableState.criticalOnly) params.set('criticalOnly', 'true')
     if (tableState.sortField) {
       params.set('sortBy', tableState.sortField)
     }

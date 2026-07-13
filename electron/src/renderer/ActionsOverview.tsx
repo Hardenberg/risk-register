@@ -172,7 +172,7 @@ export function ActionsOverview ({
   const handleExport = (format: 'json' | 'csv'): void => {
     const params = new URLSearchParams()
     if (tableState.search) params.set('search', tableState.search)
-    if (tableState.statusFilter && tableState.statusFilter !== 'Überfällig') {
+    if (tableState.statusFilter) {
       params.set('status', tableState.statusFilter)
     }
     if (tableState.priorityFilter) params.set('priority', tableState.priorityFilter)

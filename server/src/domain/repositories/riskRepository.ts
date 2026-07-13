@@ -13,6 +13,7 @@ export interface RiskListQuery {
   owner?: string
   sortBy: RiskSortField
   sortDirection: SortDirection
+  criticalOnly?: boolean
 }
 
 export interface RiskRepository {

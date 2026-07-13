@@ -678,35 +678,64 @@ test('Admin kann ein Backup erstellen und den Restore-Test durchführen', async 
 test('Benutzer kann gefilterte Risiken und Maßnahmen exportieren', async () => {
   const headers = await getAdminAuthHeaders()
 
-  // 1. Export Risks (JSON)
+  // 1. Export Risks (JSON) with criticalOnly
   const risksJsonResponse = await app.inject({
     method: 'GET',
-    url: '/api/risks/export?format=json',
+    url: '/api/risks/export?format=json&criticalOnly=true',
     headers
   })
   assert.equal(risksJsonResponse.statusCode, 200)
   assert.equal(risksJsonResponse.headers['content-type'], 'application/json; charset=utf-8')
   const risksJson = risksJsonResponse.json<any[]>()
   assert.ok(risksJson.length > 0)
+  for (const r of risksJson) {
+    assert.ok(r.currentScore >= 16)
+  }
 
-  // 2. Export Risks (CSV)
+  // 2. Export Risks (CSV) with criticalOnly
   const risksCsvResponse = await app.inject({
     method: 'GET',
-    url: '/api/risks/export?format=csv',
+    url: '/api/risks/export?format=csv&criticalOnly=true',
     headers
   })
   assert.equal(risksCsvResponse.statusCode, 200)
   assert.equal(risksCsvResponse.headers['content-type'], 'text/csv; charset=utf-8')
   assert.match(risksCsvResponse.body, /^id;reference;title;/)
 
-  // 3. Export Measures (JSON)
+  // 3. Export Measures (JSON) with status=Überfällig (We create an overdue measure first to guarantee test has one)
+  const riskResponse = await app.inject({ method: 'GET', url: '/api/risks', headers })
+  const [risk] = riskResponse.json<any>().items
+  const overdueDueDate = '2020-01-01'
+  const createOverdueMeasureResponse = await app.inject({
+    method: 'POST',
+    url: '/api/measures',
+    headers,
+    payload: {
+      riskId: risk.id,
+      title: 'Overdue Test Measure',
+      description: 'Must appear in overdue filter.',
+      owner: 'Test Owner',
+      dueDate: overdueDueDate,
+      priority: 'Hoch',
+      status: 'Offen'
+    }
+  })
+  assert.equal(createOverdueMeasureResponse.statusCode, 201)
+
   const measuresJsonResponse = await app.inject({
     method: 'GET',
-    url: '/api/measures/export?format=json',
+    url: '/api/measures/export?format=json&status=Überfällig',
     headers
   })
   assert.equal(measuresJsonResponse.statusCode, 200)
   assert.equal(measuresJsonResponse.headers['content-type'], 'application/json; charset=utf-8')
+  const measuresJson = measuresJsonResponse.json<any[]>()
+  assert.ok(measuresJson.length > 0)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  for (const m of measuresJson) {
+    assert.notEqual(m.status, 'Erledigt')
+    assert.ok(m.dueDate && m.dueDate < todayStr)
+  }
 
   // 4. Export Measures (CSV)
   const measuresCsvResponse = await app.inject({

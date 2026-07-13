@@ -153,6 +153,9 @@ function buildRiskWhere (query: RiskListQuery): { whereClause: string, params: A
     conditions.push('(reference LIKE ? OR title LIKE ? OR description LIKE ? OR category LIKE ? OR owner LIKE ?)')
     params.push(...Array<string>(5).fill(`%${normalizedSearch}%`))
   }
+  if (query.criticalOnly) {
+    conditions.push('current_score >= 16')
+  }
   if (query.status) {
     conditions.push('status = ?')
     params.push(query.status)

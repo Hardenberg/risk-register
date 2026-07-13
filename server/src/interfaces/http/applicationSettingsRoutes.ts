@@ -90,6 +90,8 @@ export function registerApplicationSettingsRoutes (app: FastifyInstance, useCase
     const destPath = join(backupDir, filename)
 
     if (useCases.database.databasePath !== ':memory:') {
+      // Execute WAL checkpoint to write outstanding WAL log transactions to the main database file before copying
+      useCases.database.connection.exec('PRAGMA wal_checkpoint(TRUNCATE);')
       copyFileSync(useCases.database.databasePath, destPath)
     } else {
       const tempDb = new DatabaseSync(destPath)

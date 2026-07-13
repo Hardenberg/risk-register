@@ -38,6 +38,7 @@ interface RiskQuery {
   owner?: string
   sortBy?: RiskSortField
   sortDirection?: SortDirection
+  criticalOnly?: boolean | string
 }
 
 const riskSortFields: RiskSortField[] = ['reference', 'title', 'category', 'owner', 'currentScore', 'status', 'dueDate', 'reviewDate', 'createdAt', 'updatedAt']
@@ -115,7 +116,8 @@ export function registerRiskRoutes (app: FastifyInstance, useCases: RiskUseCases
           owner: { type: 'string', maxLength: 200 },
           sortBy: { type: 'string', enum: riskSortFields, default: 'currentScore' },
           sortDirection: { type: 'string', enum: sortDirections, default: 'desc' },
-          format: { type: 'string', enum: ['json', 'csv'], default: 'json' }
+          format: { type: 'string', enum: ['json', 'csv'], default: 'json' },
+          criticalOnly: { type: 'boolean', description: 'Filtert nach kritischen Risiken.' }
         }
       },
       response: {
@@ -128,7 +130,7 @@ export function registerRiskRoutes (app: FastifyInstance, useCases: RiskUseCases
       ...request.query,
       page: 1,
       pageSize: 100000
-    })
+    }, true)
     const paginated = await useCases.list.execute(listQuery)
     const format = request.query.format ?? 'json'
 
@@ -175,7 +177,8 @@ export function registerRiskRoutes (app: FastifyInstance, useCases: RiskUseCases
           category: { type: 'string', maxLength: 200, description: 'Filtert nach exakt passender Kategorie.' },
           owner: { type: 'string', maxLength: 200, description: 'Filtert nach exakt passender verantwortlicher Person.' },
           sortBy: { type: 'string', enum: riskSortFields, default: 'currentScore', description: 'Sortierfeld.' },
-          sortDirection: { type: 'string', enum: sortDirections, default: 'desc', description: 'Sortierrichtung.' }
+          sortDirection: { type: 'string', enum: sortDirections, default: 'desc', description: 'Sortierrichtung.' },
+          criticalOnly: { type: 'boolean', description: 'Filtert nach kritischen Risiken.' }
         }
       },
       response: {
@@ -267,16 +270,17 @@ export function registerRiskRoutes (app: FastifyInstance, useCases: RiskUseCases
   })
 }
 
-function normalizeRiskQuery (query: RiskQuery): RiskListQuery {
+function normalizeRiskQuery (query: RiskQuery, isExport = false): RiskListQuery {
   return {
     page: clampInteger(query.page, 1, 1, Number.MAX_SAFE_INTEGER),
-    pageSize: clampInteger(query.pageSize, 50, 1, 500),
+    pageSize: clampInteger(query.pageSize, 50, 1, isExport ? 1000000 : 500),
     search: normalizeOptionalText(query.search),
     status: query.status,
     category: normalizeOptionalText(query.category),
     owner: normalizeOptionalText(query.owner),
     sortBy: query.sortBy ?? 'currentScore',
-    sortDirection: query.sortDirection ?? 'desc'
+    sortDirection: query.sortDirection ?? 'desc',
+    criticalOnly: query.criticalOnly === true || String(query.criticalOnly) === 'true'
   }
 }
 
