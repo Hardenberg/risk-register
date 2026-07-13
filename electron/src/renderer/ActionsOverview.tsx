@@ -34,6 +34,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { CreateMeasureInput, Measure, MeasurePriority, MeasureStatus, UpdateMeasureInput } from './api/measures'
+import { readAuthSession } from './api/auth'
 import type { Risk } from './api/risks'
 import { datePickerDisplayFormat, getDatePickerValue, normalizeDatePickerValue } from './datePickerFields'
 import { usePersistentState } from './persistentState'
@@ -166,7 +167,54 @@ export function ActionsOverview ({
   onUpdate,
   onDelete
 }: ActionsOverviewProps): React.JSX.Element {
-  const { modal } = App.useApp()
+  const { message, modal } = App.useApp()
+
+  const handleExport = (format: 'json' | 'csv'): void => {
+    const params = new URLSearchParams()
+    if (tableState.search) params.set('search', tableState.search)
+    if (tableState.statusFilter && tableState.statusFilter !== 'Überfällig') {
+      params.set('status', tableState.statusFilter)
+    }
+    if (tableState.priorityFilter) params.set('priority', tableState.priorityFilter)
+    if (tableState.riskFilter) {
+      if (tableState.riskFilter !== '__without_risk__') {
+        params.set('riskId', tableState.riskFilter)
+      }
+    }
+    if (tableState.sortField) {
+      params.set('sortBy', tableState.sortField)
+    }
+    if (tableState.sortOrder) {
+      params.set('sortDirection', tableState.sortOrder === 'ascend' ? 'asc' : 'desc')
+    }
+    params.set('format', format)
+
+    const token = readAuthSession()?.token
+    const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api'
+    const url = `${apiBaseUrl}/measures/export?${params.toString()}`
+
+    fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Export fehlgeschlagen')
+        const blob = await response.blob()
+        const downloadUrl = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        a.download = `measures-export.${format}`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(downloadUrl)
+        void message.success(`${format.toUpperCase()}-Export erfolgreich heruntergeladen.`)
+      })
+      .catch((err) => {
+        void message.error('Export fehlgeschlagen: ' + String(err.message))
+      })
+  }
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedMeasureId, setSelectedMeasureId] = useState<string | null>(null)
   const [editingMeasureId, setEditingMeasureId] = useState<string | null>(null)
@@ -493,6 +541,8 @@ export function ActionsOverview ({
         </div>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={onReload} loading={loading}>Aktualisieren</Button>
+          <Button onClick={() => handleExport('csv')}>CSV Export</Button>
+          <Button onClick={() => handleExport('json')}>JSON Export</Button>
           <Button type="primary" size="large" icon={<PlusOutlined />} onClick={openCreateModal}>Maßnahme anlegen</Button>
         </Space>
       </Flex>

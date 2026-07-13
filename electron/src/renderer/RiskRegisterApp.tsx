@@ -46,9 +46,9 @@ import {
   Typography,
   type TableProps
 } from 'antd'
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, lazy, Suspense } from 'react'
 
-import { ActionsOverview, type MeasureOverviewPreset } from './ActionsOverview'
+import type { MeasureOverviewPreset } from './ActionsOverview'
 import { clearAuthToken, isAuthenticationRequiredError, readAuthSession } from './api/auth'
 import {
   createMeasure as createMeasureRequest,
@@ -72,11 +72,9 @@ import {
 import { updateProfile as updateProfileRequest, type UpdateProfileInput, type User } from './api/users'
 import { datePickerDisplayFormat, getDatePickerValue, normalizeDatePickerValue } from './datePickerFields'
 import { LoginScreen } from './LoginScreen'
-import { ReportsOverview } from './ReportsOverview'
 import { RiskDetailDrawer } from './RiskDetailDrawer'
 import { calculateReviewDate, reviewCycleOptions } from './riskOptions'
-import { RisksOverview, type RiskOverviewPreset } from './RisksOverview'
-import { SettingsManagement } from './SettingsManagement'
+import type { RiskOverviewPreset } from './RisksOverview'
 import {
   confirmDiscardChanges,
   createFormSnapshot,
@@ -84,7 +82,12 @@ import {
   type FormSnapshot
 } from './unsavedChanges'
 import { AppEmptyState, AppErrorState, LoadingStatistic, LoadingText, TableSkeleton } from './uiStates'
-import { UsersManagement } from './UsersManagement'
+
+const ActionsOverview = lazy(() => import('./ActionsOverview').then((module) => ({ default: module.ActionsOverview })))
+const ReportsOverview = lazy(() => import('./ReportsOverview').then((module) => ({ default: module.ReportsOverview })))
+const RisksOverview = lazy(() => import('./RisksOverview').then((module) => ({ default: module.RisksOverview })))
+const SettingsManagement = lazy(() => import('./SettingsManagement').then((module) => ({ default: module.SettingsManagement })))
+const UsersManagement = lazy(() => import('./UsersManagement').then((module) => ({ default: module.UsersManagement })))
 
 const { Header, Content, Sider } = Layout
 const { Text, Title } = Typography
@@ -199,7 +202,7 @@ function RiskRegisterContent (): React.JSX.Element {
   const [settingsDirty, setSettingsDirty] = useState(false)
   const selectedCreateReviewCycle = Form.useWatch('reviewCycle', form) ?? 'Fix'
 
-  const resetSession = useCallback((showNotice = true): void => {
+  const resetSession = useCallback((noticeMessage: string | boolean = true): void => {
     clearAuthToken()
     setCurrentUser(null)
     setActiveView('overview')
@@ -211,7 +214,11 @@ function RiskRegisterContent (): React.JSX.Element {
     setSettingsDirty(false)
     form.resetFields()
     profileForm.resetFields()
-    if (showNotice) void message.warning('Bitte erneut anmelden.')
+    if (noticeMessage === true) {
+      void message.warning('Bitte erneut anmelden.')
+    } else if (typeof noticeMessage === 'string' && noticeMessage) {
+      void message.warning(noticeMessage)
+    }
   }, [form, message, profileForm])
 
   /** Synchronisiert den lokalen UI-Zustand mit der Risiko-API. */
@@ -223,7 +230,7 @@ function RiskRegisterContent (): React.JSX.Element {
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
         setLoadError(null)
-        resetSession()
+        resetSession(error.message)
         return
       }
       setLoadError(error instanceof Error ? error.message : 'Der Server ist nicht erreichbar.')
@@ -240,7 +247,7 @@ function RiskRegisterContent (): React.JSX.Element {
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
         setMeasureError(null)
-        resetSession()
+        resetSession(error.message)
         return
       }
       setMeasureError(error instanceof Error ? error.message : 'Der Server ist nicht erreichbar.')
@@ -403,7 +410,7 @@ function RiskRegisterContent (): React.JSX.Element {
       void message.success('Das neue Risiko wurde in SQLite gespeichert.')
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
-        resetSession()
+        resetSession(error.message)
         return
       }
       void message.error(error instanceof Error ? error.message : 'Das Risiko konnte nicht gespeichert werden.')
@@ -418,7 +425,7 @@ function RiskRegisterContent (): React.JSX.Element {
       void message.success(`${updated.reference} wurde aktualisiert.`)
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
-        resetSession()
+        resetSession(error.message)
         throw error
       }
       void message.error(error instanceof Error ? error.message : 'Das Risiko konnte nicht aktualisiert werden.')
@@ -435,7 +442,7 @@ function RiskRegisterContent (): React.JSX.Element {
       void message.success(`${removed?.reference ?? 'Das Risiko'} wurde gelöscht.`)
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
-        resetSession()
+        resetSession(error.message)
         throw error
       }
       void message.error(error instanceof Error ? error.message : 'Das Risiko konnte nicht gelöscht werden.')
@@ -450,7 +457,7 @@ function RiskRegisterContent (): React.JSX.Element {
       void message.success('Die Maßnahme wurde angelegt.')
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
-        resetSession()
+        resetSession(error.message)
         throw error
       }
       void message.error(error instanceof Error ? error.message : 'Die Maßnahme konnte nicht angelegt werden.')
@@ -465,7 +472,7 @@ function RiskRegisterContent (): React.JSX.Element {
       void message.success('Die Maßnahme wurde aktualisiert.')
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
-        resetSession()
+        resetSession(error.message)
         throw error
       }
       void message.error(error instanceof Error ? error.message : 'Die Maßnahme konnte nicht aktualisiert werden.')
@@ -480,7 +487,7 @@ function RiskRegisterContent (): React.JSX.Element {
       void message.success('Die Maßnahme wurde gelöscht.')
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
-        resetSession()
+        resetSession(error.message)
         throw error
       }
       void message.error(error instanceof Error ? error.message : 'Die Maßnahme konnte nicht gelöscht werden.')
@@ -536,7 +543,7 @@ function RiskRegisterContent (): React.JSX.Element {
       void message.success('Dein Profil wurde aktualisiert.')
     } catch (error) {
       if (isAuthenticationRequiredError(error)) {
-        resetSession()
+        resetSession(error.message)
         return
       }
       void message.error(error instanceof Error ? error.message : 'Das Profil konnte nicht aktualisiert werden.')
@@ -692,7 +699,8 @@ function RiskRegisterContent (): React.JSX.Element {
         </Header>
 
         <Content className="content">
-          {activeView === 'settings' && isAdmin ? (
+          <Suspense fallback={<TableSkeleton />}>
+            {activeView === 'settings' && isAdmin ? (
             <SettingsManagement onAuthExpired={resetSession} onDirtyChange={setSettingsDirty} />
           ) : activeView === 'team' && isAdmin ? (
             <UsersManagement onAuthExpired={resetSession} />
@@ -907,6 +915,7 @@ function RiskRegisterContent (): React.JSX.Element {
           </Card>
             </>
           )}
+          </Suspense>
         </Content>
       </Layout>
 

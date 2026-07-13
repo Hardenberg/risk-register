@@ -77,8 +77,80 @@ const internalError = {
   description: 'Unerwarteter interner Serverfehler.'
 } as const
 
+function escapeCSVValue (val: any): string {
+  if (val === null || val === undefined) return ''
+  const str = String(val)
+  if (str.includes('"') || str.includes(',') || str.includes(';') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+function convertToCSV (items: Array<Record<string, any>>, headers: string[]): string {
+  const lines = [headers.join(';')]
+  for (const item of items) {
+    const row = headers.map((header) => escapeCSVValue(item[header]))
+    lines.push(row.join(';'))
+  }
+  return lines.join('\r\n')
+}
+
 /** Verbindet die HTTP-Endpunkte mit den injizierten, infrastrukturell unabhängigen Use Cases. */
 export function registerRiskRoutes (app: FastifyInstance, useCases: RiskUseCases): void {
+  app.get<{ Querystring: RiskQuery & { format?: 'json' | 'csv' } }>('/api/risks/export', {
+    preHandler: useCases.authorize,
+    schema: {
+      operationId: 'exportRisks',
+      tags: ['Risiken'],
+      security: [{ bearerAuth: [] }],
+      summary: 'Risiken exportieren',
+      description: 'Exportiert alle gefilterten Risiken im CSV- oder JSON-Format.',
+      querystring: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          search: { type: 'string', maxLength: 200 },
+          status: { type: 'string', enum: riskStatuses },
+          category: { type: 'string', maxLength: 200 },
+          owner: { type: 'string', maxLength: 200 },
+          sortBy: { type: 'string', enum: riskSortFields, default: 'currentScore' },
+          sortDirection: { type: 'string', enum: sortDirections, default: 'desc' },
+          format: { type: 'string', enum: ['json', 'csv'], default: 'json' }
+        }
+      },
+      response: {
+        401: authError,
+        500: internalError
+      }
+    }
+  }, async (request, reply) => {
+    const listQuery = normalizeRiskQuery({
+      ...request.query,
+      page: 1,
+      pageSize: 100000
+    })
+    const paginated = await useCases.list.execute(listQuery)
+    const format = request.query.format ?? 'json'
+
+    if (format === 'csv') {
+      const headers = [
+        'id', 'reference', 'title', 'description', 'category', 'owner',
+        'initialScore', 'currentScore', 'status', 'dueDate', 'reviewDate',
+        'reviewCycle', 'createdAt', 'updatedAt'
+      ]
+      const csv = convertToCSV(paginated.items, headers)
+      return reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', 'attachment; filename="risks-export.csv"')
+        .send(csv)
+    }
+
+    return reply
+      .header('Content-Type', 'application/json; charset=utf-8')
+      .header('Content-Disposition', 'attachment; filename="risks-export.json"')
+      .send(JSON.stringify(paginated.items, null, 2))
+  })
+
   app.get<{ Querystring: RiskQuery }>('/api/risks', {
     preHandler: useCases.authorize,
     schema: {
