@@ -33,6 +33,34 @@ body {
   box-shadow: 0 0 0 4px rgb(75 209 139 / 14%);
 }
 
+.session-user {
+  max-width: 260px;
+  overflow: hidden;
+  color: #fff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login-layout {
+  display: grid;
+  min-height: calc(100vh - 170px);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
+  align-items: center;
+  gap: 4rem;
+}
+
+.login-layout h1 {
+  letter-spacing: 0;
+}
+
+.login-card,
+.user-form-card,
+.settings-form-card {
+  border: 1px solid #e6e6ee;
+  border-radius: 1rem;
+  box-shadow: 0 15px 44px rgb(35 35 65 / 8%);
+}
+
 .hero {
   display: flex;
   align-items: end;
@@ -56,6 +84,17 @@ body {
 .btn-primary:focus {
   border-color: #5548bd;
   background: #5548bd;
+}
+
+.btn-outline-primary {
+  border-color: #b9b4ee;
+  color: #5548bd;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  border-color: var(--app-purple);
+  background: var(--app-purple);
 }
 
 .stat-card,
@@ -103,6 +142,17 @@ body {
   border-color: #efeff4;
 }
 
+.table tbody td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.form-label {
+  color: #5f5e72;
+  font-size: .8rem;
+  font-weight: 600;
+}
+
 .reference-badge {
   color: #4d4c5c !important;
   border: 1px solid #dedee7;
@@ -126,6 +176,15 @@ body {
   font-weight: 700;
 }
 
+.user-form-card {
+  position: sticky;
+  top: 1.5rem;
+}
+
+.settings-form-card {
+  max-width: 920px;
+}
+
 .score-column {
   width: 130px;
 }
@@ -143,5 +202,15 @@ body {
   .hero {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .login-layout {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .session-user {
+    display: none;
   }
 }

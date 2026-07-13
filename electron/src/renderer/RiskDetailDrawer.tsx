@@ -4,7 +4,9 @@ import {
   ExclamationCircleOutlined
 } from '@ant-design/icons'
 import {
+  App,
   Button,
+  DatePicker,
   Descriptions,
   Drawer,
   Flex,
@@ -21,7 +23,16 @@ import {
 } from 'antd'
 import { useEffect, useState } from 'react'
 
-import type { Risk, RiskStatus, UpdateRiskInput } from './api/risks'
+import type { ReviewCycle, Risk, RiskStatus, UpdateRiskInput } from './api/risks'
+import { datePickerDisplayFormat, getDatePickerValue, normalizeDatePickerValue } from './datePickerFields'
+import { calculateReviewDate, reviewCycleOptions } from './riskOptions'
+import {
+  confirmDiscardChanges,
+  createFormSnapshot,
+  getFormSnapshot,
+  hasUnsavedFormChanges,
+  type FormSnapshot
+} from './unsavedChanges'
 
 const { Text, Title } = Typography
 
@@ -35,12 +46,15 @@ interface RiskDetailDrawerProps {
 
 interface EditRiskValues {
   title: string
+  description: string
   category: string
   owner: string
   initialScore: number
   currentScore: number
   status: RiskStatus
   dueDate?: string
+  reviewDate?: string
+  reviewCycle: ReviewCycle
 }
 
 const statusColors: Record<RiskStatus, string> = {
@@ -66,7 +80,32 @@ function formatTimestamp (value: string): string {
   }).format(new Date(value))
 }
 
-/** Zeigt Risikodetails und kapselt Bearbeiten sowie bestätigtes Löschen. */
+/** Formatiert ein ISO-Datum für die deutschsprachige Detailansicht. */
+function formatDate (value: string | null): string {
+  if (!value) return 'Nicht geplant'
+  return new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(new Date(`${value}T00:00:00`))
+}
+
+function toEditRiskValues (risk: Risk): EditRiskValues {
+  return {
+    title: risk.title,
+    description: risk.description,
+    category: risk.category,
+    owner: risk.owner,
+    initialScore: risk.initialScore,
+    currentScore: risk.currentScore,
+    status: risk.status,
+    dueDate: risk.dueDate ?? undefined,
+    reviewDate: risk.reviewDate ?? undefined,
+    reviewCycle: risk.reviewCycle
+  }
+}
+
+/** Zeigt Risikodetails und kapselt Bearbeiten sowie bestätigte Löschmarkierung. */
 export function RiskDetailDrawer ({
   risk,
   open,
@@ -74,22 +113,19 @@ export function RiskDetailDrawer ({
   onUpdate,
   onDelete
 }: RiskDetailDrawerProps): React.JSX.Element | null {
+  const { modal } = App.useApp()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [editSnapshot, setEditSnapshot] = useState<FormSnapshot | null>(null)
   const [form] = Form.useForm<EditRiskValues>()
+  const selectedEditReviewCycle = Form.useWatch('reviewCycle', form) ?? risk?.reviewCycle ?? 'Fix'
 
   useEffect(() => {
     if (!risk) return
-    form.setFieldsValue({
-      title: risk.title,
-      category: risk.category,
-      owner: risk.owner,
-      initialScore: risk.initialScore,
-      currentScore: risk.currentScore,
-      status: risk.status,
-      dueDate: risk.dueDate ?? undefined
-    })
+    const values = toEditRiskValues(risk)
+    form.setFieldsValue(values)
+    setEditSnapshot(createFormSnapshot(values))
   }, [form, risk])
 
   if (!risk) return null
@@ -100,8 +136,9 @@ export function RiskDetailDrawer ({
     const values = await form.validateFields()
     setSaving(true)
     try {
-      await onUpdate(risk.id, { ...values, dueDate: values.dueDate || null })
+      await onUpdate(risk.id, { ...values, dueDate: values.dueDate || null, reviewDate: values.reviewDate || null })
       setEditing(false)
+      setEditSnapshot(null)
     } catch {
       // Die übergeordnete App zeigt die normalisierte API-Fehlermeldung an.
     } finally {
@@ -109,7 +146,27 @@ export function RiskDetailDrawer ({
     }
   }
 
-  /** Löscht das ausgewählte Risiko nach der bereits erfolgten Benutzerbestätigung. */
+  const openEditModal = (): void => {
+    setEditSnapshot(getFormSnapshot(form))
+    setEditing(true)
+  }
+
+  const discardEditModal = (): void => {
+    const values = toEditRiskValues(risk)
+    form.setFieldsValue(values)
+    setEditSnapshot(createFormSnapshot(values))
+    setEditing(false)
+  }
+
+  const closeEditModal = (): void => {
+    confirmDiscardChanges(
+      modal,
+      hasUnsavedFormChanges(form, editSnapshot),
+      discardEditModal
+    )
+  }
+
+  /** Markiert das ausgewählte Risiko nach der bereits erfolgten Benutzerbestätigung als gelöscht. */
   const removeRisk = async (): Promise<void> => {
     setDeleting(true)
     try {
@@ -132,12 +189,12 @@ export function RiskDetailDrawer ({
         destroyOnHidden
         extra={(
           <Space>
-            <Button icon={<EditOutlined />} onClick={() => setEditing(true)}>Bearbeiten</Button>
+            <Button icon={<EditOutlined />} onClick={openEditModal}>Bearbeiten</Button>
             <Popconfirm
-              title="Risiko dauerhaft löschen?"
+              title="Risiko löschen?"
               description={`${risk.reference} · ${risk.title}`}
               icon={<ExclamationCircleOutlined style={{ color: '#e5484d' }} />}
-              okText="Endgültig löschen"
+              okText="Löschen"
               cancelText="Abbrechen"
               okButtonProps={{ danger: true, loading: deleting }}
               onConfirm={() => { void removeRisk() }}
@@ -165,9 +222,12 @@ export function RiskDetailDrawer ({
           size="small"
           items={[
             { key: 'title', label: 'Risiko', children: risk.title },
+            { key: 'description', label: 'Beschreibung', children: risk.description },
             { key: 'category', label: 'Kategorie', children: risk.category },
             { key: 'owner', label: 'Verantwortlich', children: risk.owner },
-            { key: 'dueDate', label: 'Fällig', children: risk.dueDate ?? 'Nicht geplant' },
+            { key: 'dueDate', label: 'Fällig', children: formatDate(risk.dueDate) },
+            { key: 'reviewDate', label: 'Review', children: formatDate(risk.reviewDate) },
+            { key: 'reviewCycle', label: 'Review-Rhythmus', children: risk.reviewCycle },
             { key: 'createdAt', label: 'Erfasst', children: formatTimestamp(risk.createdAt) },
             { key: 'updatedAt', label: 'Geändert', children: formatTimestamp(risk.updatedAt) }
           ]}
@@ -175,38 +235,83 @@ export function RiskDetailDrawer ({
       </Drawer>
 
       <Modal
-        title={`${risk.reference} bearbeiten`}
+        title={<Space size={8}><Text code>{risk.reference}</Text><span>Risiko bearbeiten</span></Space>}
         open={editing}
-        onCancel={() => setEditing(false)}
+        onCancel={closeEditModal}
         onOk={() => { void saveChanges() }}
-        okText="Änderungen speichern"
+        okText="Speichern"
         cancelText="Abbrechen"
         confirmLoading={saving}
         destroyOnHidden
+        width={640}
+        className="risk-edit-modal"
       >
-        <Form form={form} layout="vertical" className="risk-form" requiredMark={false}>
+        <Form form={form} layout="vertical" className="risk-form risk-edit-form" requiredMark={false}>
           <Form.Item name="title" label="Bezeichnung" rules={[{ required: true, message: 'Bitte eine Bezeichnung eingeben.' }]}>
             <Input maxLength={200} />
           </Form.Item>
-          <Form.Item name="category" label="Kategorie" rules={[{ required: true, message: 'Bitte eine Kategorie eingeben.' }]}>
-            <Input maxLength={200} />
+          <Form.Item name="description" label="Beschreibung" rules={[{ required: true, message: 'Bitte eine Beschreibung eingeben.' }]}>
+            <Input.TextArea maxLength={2000} rows={4} />
           </Form.Item>
-          <Form.Item name="owner" label="Verantwortlich" rules={[{ required: true, message: 'Bitte eine verantwortliche Person eingeben.' }]}>
-            <Input maxLength={200} />
-          </Form.Item>
-          <Flex gap={12}>
-            <Form.Item name="initialScore" label="Initialwert" rules={[{ required: true }]} className="flex-field">
+          <div className="risk-edit-grid">
+            <Form.Item name="category" label="Kategorie" rules={[{ required: true, message: 'Bitte eine Kategorie eingeben.' }]}>
+              <Input maxLength={200} />
+            </Form.Item>
+            <Form.Item name="owner" label="Verantwortlich" rules={[{ required: true, message: 'Bitte eine verantwortliche Person eingeben.' }]}>
+              <Input maxLength={200} />
+            </Form.Item>
+          </div>
+          <div className="risk-edit-grid">
+            <Form.Item name="initialScore" label="Initialwert" rules={[{ required: true }]}>
               <InputNumber min={1} max={25} className="full-width" />
             </Form.Item>
-            <Form.Item name="currentScore" label="Aktueller Wert" rules={[{ required: true }]} className="flex-field">
+            <Form.Item name="currentScore" label="Aktueller Wert" rules={[{ required: true }]}>
               <InputNumber min={1} max={25} className="full-width" />
             </Form.Item>
-          </Flex>
-          <Form.Item name="status" label="Status" rules={[{ required: true }]}>
-            <Select<RiskStatus> options={Object.keys(statusColors).map((value) => ({ value: value as RiskStatus, label: value }))} />
+          </div>
+          <div className="risk-edit-grid">
+            <Form.Item name="status" label="Status" rules={[{ required: true }]}>
+              <Select<RiskStatus> options={Object.keys(statusColors).map((value) => ({ value: value as RiskStatus, label: value }))} />
+            </Form.Item>
+            <Form.Item
+              name="reviewDate"
+              label="Review-Datum"
+              dependencies={['reviewCycle']}
+              getValueProps={(value: string | undefined) => ({ value: getDatePickerValue(value) })}
+              normalize={normalizeDatePickerValue}
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator: async (_, value: string | undefined) => {
+                    if (getFieldValue('reviewCycle') === 'Fix' && !value) {
+                      throw new Error('Bitte ein Review-Datum angeben.')
+                    }
+                  }
+                })
+              ]}
+            >
+              <DatePicker
+                className="full-width"
+                disabled={selectedEditReviewCycle !== 'Fix'}
+                format={datePickerDisplayFormat}
+                placeholder="Review-Datum auswählen"
+              />
+            </Form.Item>
+          </div>
+          <Form.Item name="reviewCycle" label="Review-Rhythmus" rules={[{ required: true, message: 'Bitte einen Review-Rhythmus wählen.' }]}>
+            <Select<ReviewCycle>
+              options={reviewCycleOptions}
+              onChange={(value) => {
+                if (value !== 'Fix') form.setFieldValue('reviewDate', calculateReviewDate(value))
+              }}
+            />
           </Form.Item>
-          <Form.Item name="dueDate" label="Fälligkeitsdatum">
-            <Input type="date" />
+          <Form.Item
+            name="dueDate"
+            label="Fälligkeitsdatum"
+            getValueProps={(value: string | undefined) => ({ value: getDatePickerValue(value) })}
+            normalize={normalizeDatePickerValue}
+          >
+            <DatePicker className="full-width" format={datePickerDisplayFormat} placeholder="Datum auswählen" />
           </Form.Item>
         </Form>
       </Modal>

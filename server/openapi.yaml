@@ -16,6 +16,11 @@ info:
   license:
     name: Private use
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: signed-token
   schemas:
     Risk:
       title: Risk
@@ -38,6 +43,14 @@ components:
           maxLength: 200
           description: Kurze, eindeutige Bezeichnung des Risikos.
           example: Lieferengpass bei Kernkomponenten
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Fachliche Beschreibung des Risikos, seiner Ursache oder möglichen
+            Auswirkung.
+          example: Risiko von Lieferverzögerungen bei kritischen Kernkomponenten mit
+            möglicher Auswirkung auf Produktion und Kundenliefertermine.
         category:
           type: string
           minLength: 1
@@ -79,6 +92,28 @@ components:
             - type: "null"
           description: Geplantes Fälligkeitsdatum im Format YYYY-MM-DD oder null.
           example: 2026-07-18
+        reviewDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Datum der nächsten fachlichen Überprüfung im Format YYYY-MM-DD. Bei
+            Fix ist ein Datum erforderlich; bei wiederkehrenden Rhythmen wird es
+            serverseitig berechnet.
+          example: 2026-07-18
+        reviewCycle:
+          type: string
+          enum:
+            - Fix
+            - Monatlich
+            - Quartalsweise
+            - Halbjährlich
+            - Jährlich
+            - 2-jährlich
+          description: Konfigurierbarer Rhythmus für die fachliche Überprüfung. Bei Fix
+            ist reviewDate manuell, bei anderen Rhythmen wird reviewDate
+            berechnet.
+          example: Quartalsweise
         createdAt:
           type: string
           format: date-time
@@ -91,30 +126,47 @@ components:
           readOnly: true
           description: Zeitpunkt der letzten Änderung im ISO-8601-Format.
           example: 2026-07-07T10:30:00.000Z
+        deletedAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          readOnly: true
+          description: Zeitpunkt der Löschmarkierung oder null bei aktiven Risiken.
+          example: null
       required:
         - id
         - reference
         - title
+        - description
         - category
         - owner
         - initialScore
         - currentScore
         - status
         - dueDate
+        - reviewDate
+        - reviewCycle
         - createdAt
         - updatedAt
+        - deletedAt
       example:
         id: 01J00000000000000000000001
         reference: R-024
         title: Lieferengpass bei Kernkomponenten
+        description: Risiko von Lieferverzögerungen bei kritischen Kernkomponenten mit
+          möglicher Auswirkung auf Produktion und Kundenliefertermine.
         category: Lieferkette
         owner: Lena Vogt
         initialScore: 22
         currentScore: 18
         status: In Bearbeitung
         dueDate: 2026-07-18
+        reviewDate: 2026-07-18
+        reviewCycle: Quartalsweise
         createdAt: 2026-07-01T08:00:00.000Z
         updatedAt: 2026-07-07T10:30:00.000Z
+        deletedAt: null
     CreateRisk:
       title: CreateRisk
       description: Daten zur Erfassung eines neuen Risikos. Nicht gesetzte optionale
@@ -128,6 +180,14 @@ components:
           maxLength: 200
           description: Kurze, eindeutige Bezeichnung des Risikos.
           example: Lieferengpass bei Kernkomponenten
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Fachliche Beschreibung des Risikos, seiner Ursache oder möglichen
+            Auswirkung.
+          example: Risiko von Lieferverzögerungen bei kritischen Kernkomponenten mit
+            möglicher Auswirkung auf Produktion und Kundenliefertermine.
         category:
           type: string
           minLength: 1
@@ -169,19 +229,46 @@ components:
             - type: "null"
           description: Geplantes Fälligkeitsdatum im Format YYYY-MM-DD oder null.
           example: 2026-07-18
+        reviewDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Datum der nächsten fachlichen Überprüfung im Format YYYY-MM-DD. Bei
+            Fix ist ein Datum erforderlich; bei wiederkehrenden Rhythmen wird es
+            serverseitig berechnet.
+          example: 2026-07-18
+        reviewCycle:
+          type: string
+          enum:
+            - Fix
+            - Monatlich
+            - Quartalsweise
+            - Halbjährlich
+            - Jährlich
+            - 2-jährlich
+          description: Konfigurierbarer Rhythmus für die fachliche Überprüfung. Bei Fix
+            ist reviewDate manuell, bei anderen Rhythmen wird reviewDate
+            berechnet.
+          example: Quartalsweise
       required:
         - title
+        - description
         - category
         - owner
         - initialScore
       example:
         title: Lieferengpass bei Kernkomponenten
+        description: Risiko von Lieferverzögerungen bei kritischen Kernkomponenten mit
+          möglicher Auswirkung auf Produktion und Kundenliefertermine.
         category: Lieferkette
         owner: Lena Vogt
         initialScore: 22
         currentScore: 18
         status: In Bearbeitung
         dueDate: 2026-07-18
+        reviewDate: 2026-07-18
+        reviewCycle: Quartalsweise
     UpdateRisk:
       title: UpdateRisk
       description: Mindestens ein zu änderndes Feld eines vorhandenen Risikos.
@@ -195,6 +282,14 @@ components:
           maxLength: 200
           description: Kurze, eindeutige Bezeichnung des Risikos.
           example: Lieferengpass bei Kernkomponenten
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Fachliche Beschreibung des Risikos, seiner Ursache oder möglichen
+            Auswirkung.
+          example: Risiko von Lieferverzögerungen bei kritischen Kernkomponenten mit
+            möglicher Auswirkung auf Produktion und Kundenliefertermine.
         category:
           type: string
           minLength: 1
@@ -236,9 +331,64 @@ components:
             - type: "null"
           description: Geplantes Fälligkeitsdatum im Format YYYY-MM-DD oder null.
           example: 2026-07-18
+        reviewDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Datum der nächsten fachlichen Überprüfung im Format YYYY-MM-DD. Bei
+            Fix ist ein Datum erforderlich; bei wiederkehrenden Rhythmen wird es
+            serverseitig berechnet.
+          example: 2026-07-18
+        reviewCycle:
+          type: string
+          enum:
+            - Fix
+            - Monatlich
+            - Quartalsweise
+            - Halbjährlich
+            - Jährlich
+            - 2-jährlich
+          description: Konfigurierbarer Rhythmus für die fachliche Überprüfung. Bei Fix
+            ist reviewDate manuell, bei anderen Rhythmen wird reviewDate
+            berechnet.
+          example: Quartalsweise
       example:
         currentScore: 8
         status: Überwacht
+    RiskPage:
+      title: RiskPage
+      description: Paginierte Ergebnisliste für Risiken.
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Risk"
+        page:
+          type: integer
+          minimum: 1
+          example: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 500
+          example: 25
+        total:
+          type: integer
+          minimum: 0
+          example: 42
+        totalPages:
+          type: integer
+          minimum: 1
+          example: 2
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+        - totalPages
     ErrorResponse:
       title: ErrorResponse
       description: Einheitliche Fehlerantwort der Risk-Register-API.
@@ -250,6 +400,10 @@ components:
           enum:
             - VALIDATION_ERROR
             - RISK_NOT_FOUND
+            - MEASURE_NOT_FOUND
+            - USER_NOT_FOUND
+            - AUTH_FAILED
+            - FORBIDDEN
             - INTERNAL_ERROR
           example: RISK_NOT_FOUND
         message:
@@ -270,6 +424,619 @@ components:
           example: ok
       required:
         - status
+    Measure:
+      title: Measure
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Technische ID der Maßnahme.
+          example: 01J00000000000000000002000
+        riskId:
+          anyOf:
+            - type: string
+              minLength: 1
+            - type: "null"
+          description: Optional verknüpftes Risiko.
+          example: 01J00000000000000000000001
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Kurzer Titel der Maßnahme.
+          example: Alternativen Lieferanten qualifizieren
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Beschreibung der Maßnahme oder des nächsten Schritts.
+          example: Beschaffung prüft und bewertet zwei alternative Lieferanten für
+            kritische Komponenten.
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Verantwortliche Person.
+          example: Lena Vogt
+        dueDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Fälligkeitsdatum im Format YYYY-MM-DD oder null.
+          example: 2026-08-15
+        priority:
+          type: string
+          enum:
+            - Kritisch
+            - Hoch
+            - Normal
+          description: Priorität der Maßnahme.
+          example: Hoch
+        status:
+          type: string
+          enum:
+            - Offen
+            - In Arbeit
+            - Erledigt
+          description: Bearbeitungsstatus der Maßnahme.
+          example: Offen
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+          example: 2026-07-12T08:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          example: 2026-07-12T08:00:00.000Z
+      required:
+        - id
+        - riskId
+        - title
+        - description
+        - owner
+        - dueDate
+        - priority
+        - status
+        - createdAt
+        - updatedAt
+      example:
+        id: 01J00000000000000000002000
+        riskId: 01J00000000000000000000001
+        title: Alternativen Lieferanten qualifizieren
+        description: Beschaffung prüft und bewertet zwei alternative Lieferanten für
+          kritische Komponenten.
+        owner: Lena Vogt
+        dueDate: 2026-08-15
+        priority: Hoch
+        status: Offen
+        createdAt: 2026-07-12T08:00:00.000Z
+        updatedAt: 2026-07-12T08:00:00.000Z
+    CreateMeasure:
+      title: CreateMeasure
+      type: object
+      additionalProperties: false
+      properties:
+        riskId:
+          anyOf:
+            - type: string
+              minLength: 1
+            - type: "null"
+          description: Optional verknüpftes Risiko.
+          example: 01J00000000000000000000001
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Kurzer Titel der Maßnahme.
+          example: Alternativen Lieferanten qualifizieren
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Beschreibung der Maßnahme oder des nächsten Schritts.
+          example: Beschaffung prüft und bewertet zwei alternative Lieferanten für
+            kritische Komponenten.
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Verantwortliche Person.
+          example: Lena Vogt
+        dueDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Fälligkeitsdatum im Format YYYY-MM-DD oder null.
+          example: 2026-08-15
+        priority:
+          type: string
+          enum:
+            - Kritisch
+            - Hoch
+            - Normal
+          description: Priorität der Maßnahme.
+          example: Hoch
+        status:
+          type: string
+          enum:
+            - Offen
+            - In Arbeit
+            - Erledigt
+          description: Bearbeitungsstatus der Maßnahme.
+          example: Offen
+      required:
+        - title
+        - description
+        - owner
+      example:
+        id: 01J00000000000000000002000
+        riskId: 01J00000000000000000000001
+        title: Alternativen Lieferanten qualifizieren
+        description: Beschaffung prüft und bewertet zwei alternative Lieferanten für
+          kritische Komponenten.
+        owner: Lena Vogt
+        dueDate: 2026-08-15
+        priority: Hoch
+        status: Offen
+        createdAt: 2026-07-12T08:00:00.000Z
+        updatedAt: 2026-07-12T08:00:00.000Z
+    UpdateMeasure:
+      title: UpdateMeasure
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        riskId:
+          anyOf:
+            - type: string
+              minLength: 1
+            - type: "null"
+          description: Optional verknüpftes Risiko.
+          example: 01J00000000000000000000001
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Kurzer Titel der Maßnahme.
+          example: Alternativen Lieferanten qualifizieren
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Beschreibung der Maßnahme oder des nächsten Schritts.
+          example: Beschaffung prüft und bewertet zwei alternative Lieferanten für
+            kritische Komponenten.
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Verantwortliche Person.
+          example: Lena Vogt
+        dueDate:
+          anyOf:
+            - type: string
+              format: date
+            - type: "null"
+          description: Fälligkeitsdatum im Format YYYY-MM-DD oder null.
+          example: 2026-08-15
+        priority:
+          type: string
+          enum:
+            - Kritisch
+            - Hoch
+            - Normal
+          description: Priorität der Maßnahme.
+          example: Hoch
+        status:
+          type: string
+          enum:
+            - Offen
+            - In Arbeit
+            - Erledigt
+          description: Bearbeitungsstatus der Maßnahme.
+          example: Offen
+      example:
+        status: In Arbeit
+    MeasurePage:
+      title: MeasurePage
+      description: Paginierte Ergebnisliste für Maßnahmen.
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Measure"
+        page:
+          type: integer
+          minimum: 1
+          example: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 500
+          example: 25
+        total:
+          type: integer
+          minimum: 0
+          example: 42
+        totalPages:
+          type: integer
+          minimum: 1
+          example: 2
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+        - totalPages
+    User:
+      title: User
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Technische ID des Benutzers.
+          example: 01J00000000000000000001000
+        username:
+          type: string
+          minLength: 3
+          maxLength: 80
+          pattern: ^[a-zA-Z0-9._-]+$
+          description: Eindeutiger Benutzername für die Anmeldung.
+          example: admin
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Anzeigename des Benutzers.
+          example: Admin User
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: E-Mail-Adresse des Benutzers.
+          example: admin@example.local
+        department:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Abteilung des Benutzers.
+          example: Risk Management
+        role:
+          type: string
+          enum:
+            - Admin
+            - User
+          description: Rolle des Benutzers. Nur Admins dürfen Einstellungen und Benutzer
+            verwalten.
+          example: Admin
+        active:
+          type: boolean
+          description: Steuert, ob sich der Benutzer anmelden darf.
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+          example: 2026-07-01T08:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          example: 2026-07-01T08:00:00.000Z
+      required:
+        - id
+        - username
+        - name
+        - email
+        - department
+        - role
+        - active
+        - createdAt
+        - updatedAt
+      example:
+        id: 01J00000000000000000001000
+        username: admin
+        name: Admin User
+        email: admin@example.local
+        department: Risk Management
+        role: Admin
+        active: true
+        createdAt: 2026-07-01T08:00:00.000Z
+        updatedAt: 2026-07-01T08:00:00.000Z
+    CreateUser:
+      title: CreateUser
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 80
+          pattern: ^[a-zA-Z0-9._-]+$
+          description: Eindeutiger Benutzername für die Anmeldung.
+          example: admin
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Anzeigename des Benutzers.
+          example: Admin User
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: E-Mail-Adresse des Benutzers.
+          example: admin@example.local
+        department:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Abteilung des Benutzers.
+          example: Risk Management
+        role:
+          type: string
+          enum:
+            - Admin
+            - User
+          description: Rolle des Benutzers. Nur Admins dürfen Einstellungen und Benutzer
+            verwalten.
+          example: Admin
+        active:
+          type: boolean
+          description: Steuert, ob sich der Benutzer anmelden darf.
+          example: true
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+          description: Passwort des Benutzers. Wird nie in API-Antworten zurückgegeben.
+          example: admin123
+      required:
+        - username
+        - name
+        - email
+        - department
+        - password
+      example:
+        username: lena.vogt
+        name: Lena Vogt
+        email: lena.vogt@example.local
+        department: Risk Management
+        role: User
+        password: sicher123
+        active: true
+    UpdateUser:
+      title: UpdateUser
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 80
+          pattern: ^[a-zA-Z0-9._-]+$
+          description: Eindeutiger Benutzername für die Anmeldung.
+          example: admin
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Anzeigename des Benutzers.
+          example: Admin User
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: E-Mail-Adresse des Benutzers.
+          example: admin@example.local
+        department:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Abteilung des Benutzers.
+          example: Risk Management
+        role:
+          type: string
+          enum:
+            - Admin
+            - User
+          description: Rolle des Benutzers. Nur Admins dürfen Einstellungen und Benutzer
+            verwalten.
+          example: Admin
+        active:
+          type: boolean
+          description: Steuert, ob sich der Benutzer anmelden darf.
+          example: true
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+          description: Passwort des Benutzers. Wird nie in API-Antworten zurückgegeben.
+          example: admin123
+      example:
+        active: false
+    UpdateProfile:
+      title: UpdateProfile
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 80
+          pattern: ^[a-zA-Z0-9._-]+$
+          description: Eindeutiger Benutzername für die Anmeldung.
+          example: admin
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Anzeigename des Benutzers.
+          example: Admin User
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: E-Mail-Adresse des Benutzers.
+          example: admin@example.local
+        department:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Abteilung des Benutzers.
+          example: Risk Management
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+          description: Passwort des Benutzers. Wird nie in API-Antworten zurückgegeben.
+          example: admin123
+      example:
+        name: Lena Vogt
+        department: Risk Office
+    LoginRequest:
+      title: LoginRequest
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Benutzername oder E-Mail-Adresse.
+          example: admin
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+          description: Passwort des Benutzers. Wird nie in API-Antworten zurückgegeben.
+          example: admin123
+      required:
+        - username
+        - password
+    LoginResponse:
+      title: LoginResponse
+      type: object
+      additionalProperties: false
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+          minLength: 1
+          description: Bearer-Token für nachfolgende API-Anfragen.
+          example: eyJzdWIiOiIxIn0.signature
+      required:
+        - user
+        - token
+    ApplicationSettings:
+      title: ApplicationSettings
+      type: object
+      additionalProperties: false
+      properties:
+        organizationName:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Name der Organisation oder des Bereichs.
+          example: Risk Register
+        defaultReviewCycle:
+          type: string
+          enum:
+            - Fix
+            - Monatlich
+            - Quartalsweise
+            - Halbjährlich
+            - Jährlich
+            - 2-jährlich
+          description: Standard-Review-Rhythmus für neue Risiken.
+          example: Fix
+        reviewReminderDays:
+          type: integer
+          minimum: 0
+          maximum: 365
+          description: Anzahl Tage vor dem Review-Datum für Erinnerungen.
+          example: 14
+        highRiskThreshold:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Risikowert ab dem Risiken als hoch gelten.
+          example: 10
+        criticalRiskThreshold:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Risikowert ab dem Risiken als kritisch gelten.
+          example: 16
+      required:
+        - organizationName
+        - defaultReviewCycle
+        - reviewReminderDays
+        - highRiskThreshold
+        - criticalRiskThreshold
+      example:
+        organizationName: Risk Register
+        defaultReviewCycle: Fix
+        reviewReminderDays: 14
+        highRiskThreshold: 10
+        criticalRiskThreshold: 16
+    UpdateApplicationSettings:
+      title: UpdateApplicationSettings
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        organizationName:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Name der Organisation oder des Bereichs.
+          example: Risk Register
+        defaultReviewCycle:
+          type: string
+          enum:
+            - Fix
+            - Monatlich
+            - Quartalsweise
+            - Halbjährlich
+            - Jährlich
+            - 2-jährlich
+          description: Standard-Review-Rhythmus für neue Risiken.
+          example: Fix
+        reviewReminderDays:
+          type: integer
+          minimum: 0
+          maximum: 365
+          description: Anzahl Tage vor dem Review-Datum für Erinnerungen.
+          example: 14
+        highRiskThreshold:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Risikowert ab dem Risiken als hoch gelten.
+          example: 10
+        criticalRiskThreshold:
+          type: integer
+          minimum: 1
+          maximum: 25
+          description: Risikowert ab dem Risiken als kritisch gelten.
+          example: 16
+      example:
+        organizationName: Risk Register
+        defaultReviewCycle: Fix
+        reviewReminderDays: 14
+        highRiskThreshold: 10
+        criticalRiskThreshold: 16
 paths:
   /health:
     get:
@@ -289,12 +1056,28 @@ paths:
   /api/risks:
     get:
       operationId: listRisks
-      summary: Alle Risiken abrufen
+      summary: Risiken abrufen
       tags:
         - Risiken
-      description: Liefert alle Risiken absteigend nach aktuellem Risikowert. Optional
-        kann über mehrere Textfelder gesucht werden.
+      description: Liefert Risiken serverseitig gefiltert, sortiert und paginiert.
       parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            default: 1
+          in: query
+          name: page
+          required: false
+          description: Eins-basierte Seitennummer.
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          in: query
+          name: pageSize
+          required: false
+          description: Anzahl der Datensätze pro Seite.
         - schema:
             type: string
             maxLength: 200
@@ -302,18 +1085,76 @@ paths:
           in: query
           name: search
           required: false
-          description: Freitextsuche in Referenz, Bezeichnung, Kategorie und
+          description: Freitextsuche in Referenz, Bezeichnung, Beschreibung, Kategorie und
             Verantwortlichem.
+        - schema:
+            type: string
+            enum:
+              - Offen
+              - In Bearbeitung
+              - Überwacht
+              - Geschlossen
+          in: query
+          name: status
+          required: false
+          description: Filtert nach Bearbeitungsstatus.
+        - schema:
+            type: string
+            maxLength: 200
+          in: query
+          name: category
+          required: false
+          description: Filtert nach exakt passender Kategorie.
+        - schema:
+            type: string
+            maxLength: 200
+          in: query
+          name: owner
+          required: false
+          description: Filtert nach exakt passender verantwortlicher Person.
+        - schema:
+            type: string
+            enum:
+              - reference
+              - title
+              - category
+              - owner
+              - currentScore
+              - status
+              - dueDate
+              - reviewDate
+              - createdAt
+              - updatedAt
+            default: currentScore
+          in: query
+          name: sortBy
+          required: false
+          description: Sortierfeld.
+        - schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: desc
+          in: query
+          name: sortDirection
+          required: false
+          description: Sortierrichtung.
+      security:
+        - bearerAuth: []
       responses:
         "200":
-          description: Die gefundenen Risiken, sortiert nach aktuellem Risikowert.
+          description: Die gefundene Risikoseite.
           content:
             application/json:
               schema:
-                type: array
-                description: Die gefundenen Risiken, sortiert nach aktuellem Risikowert.
-                items:
-                  $ref: "#/components/schemas/Risk"
+                $ref: "#/components/schemas/RiskPage"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Unerwarteter interner Serverfehler.
           content:
@@ -333,6 +1174,8 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateRisk"
+      security:
+        - bearerAuth: []
       responses:
         "201":
           description: Das erfolgreich erfasste Risiko.
@@ -342,6 +1185,12 @@ paths:
                 $ref: "#/components/schemas/Risk"
         "400":
           description: Die Anfrage enthält ungültige oder unvollständige Daten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
           content:
             application/json:
               schema:
@@ -368,6 +1217,8 @@ paths:
           name: id
           required: true
           description: Technische ID des Risikos.
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Das angeforderte Risiko.
@@ -375,6 +1226,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Risk"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Unter der angegebenen ID wurde kein Risiko gefunden.
           content:
@@ -409,6 +1266,8 @@ paths:
           name: id
           required: true
           description: Technische ID des Risikos.
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Das aktualisierte Risiko.
@@ -418,6 +1277,12 @@ paths:
                 $ref: "#/components/schemas/Risk"
         "400":
           description: Die Anfrage enthält ungültige oder unvollständige Daten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
           content:
             application/json:
               schema:
@@ -436,10 +1301,11 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteRisk
-      summary: Ein Risiko löschen
+      summary: Ein Risiko zur Löschung markieren
       tags:
         - Risiken
-      description: Löscht ein Risiko dauerhaft aus dem Register.
+      description: Markiert ein Risiko als gelöscht. Es bleibt in SQLite erhalten,
+        wird aber in aktiven Listen nicht mehr ausgeliefert.
       parameters:
         - schema:
             type: string
@@ -449,11 +1315,636 @@ paths:
           name: id
           required: true
           description: Technische ID des Risikos.
+      security:
+        - bearerAuth: []
       responses:
         "204":
-          description: Das Risiko wurde erfolgreich gelöscht.
+          description: Das Risiko wurde erfolgreich zur Löschung markiert.
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Unter der angegebenen ID wurde kein Risiko gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/measures:
+    get:
+      operationId: listMeasures
+      summary: Maßnahmen abrufen
+      tags:
+        - Maßnahmen
+      description: Liefert Maßnahmen serverseitig gefiltert, sortiert und paginiert.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            default: 1
+          in: query
+          name: page
+          required: false
+          description: Eins-basierte Seitennummer.
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          in: query
+          name: pageSize
+          required: false
+          description: Anzahl der Datensätze pro Seite.
+        - schema:
+            type: string
+            maxLength: 200
+          in: query
+          name: search
+          required: false
+          description: Freitextsuche in Titel, Beschreibung und Verantwortlichem.
+        - schema:
+            type: string
+            enum:
+              - Offen
+              - In Arbeit
+              - Erledigt
+          in: query
+          name: status
+          required: false
+          description: Filtert nach Bearbeitungsstatus.
+        - schema:
+            type: string
+            enum:
+              - Kritisch
+              - Hoch
+              - Normal
+          in: query
+          name: priority
+          required: false
+          description: Filtert nach Priorität.
+        - schema:
+            type: string
+            maxLength: 200
+          in: query
+          name: owner
+          required: false
+          description: Filtert nach exakt passender verantwortlicher Person.
+        - schema:
+            type: string
+            minLength: 1
+          in: query
+          name: riskId
+          required: false
+          description: Filtert nach verknüpftem Risiko.
+        - schema:
+            type: string
+            enum:
+              - title
+              - owner
+              - dueDate
+              - priority
+              - status
+              - createdAt
+              - updatedAt
+            default: dueDate
+          in: query
+          name: sortBy
+          required: false
+          description: Sortierfeld.
+        - schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: asc
+          in: query
+          name: sortDirection
+          required: false
+          description: Sortierrichtung.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Die gefundene Maßnahmenseite.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeasurePage"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createMeasure
+      summary: Eine Maßnahme anlegen
+      tags:
+        - Maßnahmen
+      description: Legt eine neue Maßnahme optional mit Bezug zu einem Risiko an.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMeasure"
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Die erfolgreich angelegte Maßnahme.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Measure"
+        "400":
+          description: Die Anfrage enthält ungültige oder unvollständige Maßnahmendaten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/measures/{id}:
+    get:
+      operationId: getMeasure
+      summary: Eine Maßnahme abrufen
+      tags:
+        - Maßnahmen
+      description: Liefert eine einzelne Maßnahme anhand ihrer technischen ID.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: id
+          required: true
+          description: Technische ID der Maßnahme.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Die angeforderte Maßnahme.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Measure"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unter der angegebenen ID wurde keine Maßnahme gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateMeasure
+      summary: Eine Maßnahme bearbeiten
+      tags:
+        - Maßnahmen
+      description: Aktualisiert die übergebenen Felder einer vorhandenen Maßnahme.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeasure"
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: id
+          required: true
+          description: Technische ID der Maßnahme.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Die aktualisierte Maßnahme.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Measure"
+        "400":
+          description: Die Anfrage enthält ungültige oder unvollständige Maßnahmendaten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unter der angegebenen ID wurde keine Maßnahme gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteMeasure
+      summary: Eine Maßnahme löschen
+      tags:
+        - Maßnahmen
+      description: Entfernt eine Maßnahme nach Benutzerbestätigung in der Oberfläche.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: id
+          required: true
+          description: Technische ID der Maßnahme.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Die Maßnahme wurde gelöscht.
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unter der angegebenen ID wurde keine Maßnahme gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/auth/login:
+    post:
+      operationId: loginUser
+      summary: Benutzer anmelden
+      tags:
+        - Benutzer
+      description: Prüft Benutzername/E-Mail und Passwort. Deaktivierte Benutzer
+        können sich nicht anmelden.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Die Anmeldedaten sind ungültig oder der Benutzer ist deaktiviert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/profile:
+    get:
+      operationId: getProfile
+      summary: Eigenes Profil abrufen
+      tags:
+        - Benutzer
+      description: Liefert das Profil des angemeldeten Benutzers ohne Passwortdaten.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Die Anmeldedaten sind ungültig oder der Benutzer ist deaktiviert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unter der angegebenen ID wurde kein Benutzer gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateProfile
+      summary: Eigenes Profil bearbeiten
+      tags:
+        - Benutzer
+      description: Aktualisiert Profilfelder oder Passwort des angemeldeten Benutzers.
+        Rolle und Aktivstatus bleiben Admins vorbehalten.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfile"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Die Anfrage enthält ungültige oder unvollständige Daten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Die Anmeldedaten sind ungültig oder der Benutzer ist deaktiviert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unter der angegebenen ID wurde kein Benutzer gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/users:
+    get:
+      operationId: listUsers
+      summary: Benutzer auflisten
+      tags:
+        - Benutzer
+      description: Liefert alle Benutzer ohne Passwortdaten.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "401":
+          description: Die Anmeldedaten sind ungültig oder der Benutzer ist deaktiviert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Nur Admins dürfen Benutzer verwalten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createUser
+      summary: Benutzer anlegen
+      tags:
+        - Benutzer
+      description: Legt einen Benutzer mit gehashtem Passwort an.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUser"
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Die Anfrage enthält ungültige oder unvollständige Daten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Die Anmeldedaten sind ungültig oder der Benutzer ist deaktiviert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Nur Admins dürfen Benutzer verwalten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/users/{id}:
+    put:
+      operationId: updateUser
+      summary: Benutzer bearbeiten
+      tags:
+        - Benutzer
+      description: Aktualisiert Benutzerstammdaten, Passwort oder Aktivstatus.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUser"
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: id
+          required: true
+          description: Technische ID des Benutzers.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Die Anfrage enthält ungültige oder unvollständige Daten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Die Anmeldedaten sind ungültig oder der Benutzer ist deaktiviert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Nur Admins dürfen Benutzer verwalten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unter der angegebenen ID wurde kein Benutzer gefunden.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/settings:
+    get:
+      operationId: getApplicationSettings
+      summary: Einstellungen abrufen
+      tags:
+        - Einstellungen
+      description: Liefert das minimale Einstellungsset. Nur Admins dürfen darauf zugreifen.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationSettings"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Nur Admins dürfen Einstellungen verwalten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unerwarteter interner Serverfehler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateApplicationSettings
+      summary: Einstellungen speichern
+      tags:
+        - Einstellungen
+      description: Aktualisiert Organisation, Standard-Review und Risikoschwellen. Nur
+        Admins dürfen speichern.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApplicationSettings"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationSettings"
+        "400":
+          description: Die Einstellungen enthalten ungültige Werte.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Die Anfrage benötigt eine gültige Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Nur Admins dürfen Einstellungen verwalten.
           content:
             application/json:
               schema:
@@ -472,6 +1963,10 @@ tags:
     description: Betriebs- und Verfügbarkeitsinformationen.
   - name: Risiken
     description: Erfassen und Verwalten von Risiken im zentralen Register.
+  - name: Maßnahmen
+    description: Operative Maßnahmen zu Risiken erfassen und verfolgen.
+  - name: Benutzer
+    description: Anmeldung und Benutzerverwaltung für die Electron-App.
 externalDocs:
   description: Bootstrap-Risikoübersicht öffnen
   url: http://127.0.0.1:8000/

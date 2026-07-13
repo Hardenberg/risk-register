@@ -1,249 +1,230 @@
 # Projekt-Todos
 
-Stand: 8. Juli 2026
+Stand: 13. Juli 2026
 
-## Ausgangslage
+## Aktuelle Ausgangslage
 
 Das Projekt besteht aus einer Electron-/React-/Ant-Design-Anwendung und einem lokalen
-Fastify-Server mit Clean Architecture, SQLite, OpenAPI und einer Bootstrap-Übersicht.
-Die Schichten `domain`, `application`, `infrastructure` und `interfaces` sind sinnvoll
-getrennt. SQL-Werte werden parametrisiert, Electron verwendet bereits
-`contextIsolation: true` und `nodeIntegration: false`, und externe UI-Ressourcen werden
-lokal gebündelt.
+Fastify-Server mit SQLite, OpenAPI, Bootstrap-Übersicht und klar getrennten Schichten
+für Domain, Use Cases, Infrastruktur und HTTP. Die Kernfunktionen sind inzwischen
+deutlich weiter als im ursprünglichen Stand:
 
-Aktuell erfolgreich geprüft:
+- Risiken können angelegt, bearbeitet und mit Löschmarkierung entfernt werden.
+- Risiken besitzen Beschreibung, Fälligkeit, Review-Datum und Review-Rhythmus.
+- Wiederkehrende Review-Daten werden serverseitig berechnet; bei `Fix` ist ein Datum Pflicht.
+- Anmeldung mit Benutzername/E-Mail und Passwort ist vorhanden.
+- Benutzerverwaltung, Einstellungen und Rollenprüfung sind für Admins umgesetzt.
+- Nutzer können ihr eigenes Profil bearbeiten.
+- Maßnahmen sind eigene persistierte Datensätze mit API, Suche, Filtern, Detailansicht, Bearbeiten und Löschen.
+- Berichte und Maßnahmenbericht sind in der Electron-App erreichbar.
+- Schreibende API-Endpunkte sind per Bearer-Token geschützt.
 
-- TypeScript-Strict-Mode für Electron, Server und Server-Webseite
-- Server-Build und Electron-Build
-- sechs Server-/OpenAPI-/SQLite-Integrationstests
-- `npm audit` im Root, in `electron` und in `server`: keine bekannten Schwachstellen
+Zuletzt erfolgreich geprüft:
 
-## P0 – vor einer produktiven oder netzwerkweiten Nutzung
+- `npm.cmd --prefix server run typecheck`
+- `npm.cmd --prefix server test` mit 12 Integrationstests
+- `npm.cmd --prefix server run docs:generate`
+- `npm.cmd --prefix electron run typecheck`
+- `npm.cmd --prefix electron run build`
 
-- [ ] **Zugriff auf schreibende API-Endpunkte absichern.**
-  Solange ausschließlich an `127.0.0.1` gebunden wird, ist das Risiko begrenzt, aber
-  jeder lokale Prozess kann Risiken anlegen, ändern oder löschen. Vor einer Bindung an
-  `0.0.0.0` sind Authentisierung und Autorisierung zwingend. Akzeptanz: POST, PUT und
-  DELETE weisen nicht authentisierte Aufrufe mit 401/403 ab; das Security-Schema ist in
-  OpenAPI dokumentiert; Secrets stehen nicht im Repository.
+Die Vite-Warnung zum großen Electron-Renderer-Chunk besteht weiterhin.
 
-- [ ] **Electron-Navigation und Berechtigungen härten.**
-  `sandbox: true` setzen, neue Fenster standardmäßig über `setWindowOpenHandler` ablehnen,
-  fremde Navigation über `will-navigate` blockieren und einen restriktiven
-  `session.setPermissionRequestHandler` einführen. Akzeptanz: Nur die gebündelte
-  `file://`-Seite kann geladen werden; Pop-ups, Kamera, Mikrofon, Standort und
-  Benachrichtigungen sind ohne explizite Freigabe blockiert.
+## Erledigt und vorerst nicht mehr als Todo führen
+
+- [x] Authentisierung für API-Schreibzugriffe
+- [x] Login in der Electron-App
+- [x] Admin-Benutzerverwaltung inklusive Deaktivieren von Benutzern
+- [x] Minimales Admin-Einstellungsset
+- [x] Eigenes Profil bearbeiten
+- [x] Risiko bearbeiten und löschen mit Nachfrage
+- [x] Löschung von Risiken als Löschmarkierung
+- [x] Risiko-Beschreibung und Review-Datum
+- [x] Konfigurierbarer Review-Rhythmus
+- [x] Umschalten aus der Übersicht in die Risikoübersicht
+- [x] Maßnahmen-API und Maßnahmen-Tab
+- [x] Maßnahmen suchen, filtern, ansehen, bearbeiten und löschen
+- [x] Berichtslayout mit Maßnahmenbereich
+
+## P0 - notwendig vor produktiver oder netzwerkweiter Nutzung
+
+- [x] **Electron-Sicherheitsmodell härten.**
+  `sandbox: true` ist aktiv, Pop-ups/Webviews werden abgelehnt, Navigation ist auf die
+  gebündelte Renderer-Datei begrenzt und Berechtigungsanfragen werden verweigert.
+  Ein Electron-Security-Smoke-Test prüft diese Schutzschalter automatisiert.
+
+- [ ] **Token- und Session-Sicherheit nachschärfen.**
+  Ablaufzeit für Tokens, Rotation/Logout-Verhalten, sichere Speicherung und Fehlerfälle
+  festlegen. Für Netzwerkbetrieb zusätzlich HTTPS/Reverse-Proxy-Annahmen dokumentieren.
+  Akzeptanz: Tokens laufen ab, deaktivierte Benutzer verlieren Zugriff zuverlässig,
+  und ein Security-Test deckt abgelaufene/deaktivierte Sessions ab.
+
+- [ ] **HTTP-Sicherheitsgrenzen konfigurieren.**
+  `@fastify/helmet`, Rate Limiting, Body-Limits und eine konfigurierbare Origin-Allowlist
+  ergänzen. Die Freigabe für Electron-Origin `null` bleibt bewusst, sollte aber klar
+  dokumentiert und begrenzt sein. Akzeptanz: Header, Limits und 429-Fälle sind getestet.
 
 - [ ] **Risikoreferenzen atomar vergeben.**
-  `nextReference()` und `create()` sind derzeit zwei getrennte Schritte. Zwei parallele
-  Requests können dieselbe Referenz berechnen. Vergabe in eine SQLite-Transaktion oder
-  eine dedizierte Sequenz verschieben und Unique-Constraint-Konflikte kontrolliert
-  wiederholen. Akzeptanz: Ein Paralleltest mit mindestens 50 POST-Requests erzeugt nur
-  eindeutige Referenzen und keine 500-Antwort.
+  Die Referenzvergabe darf bei parallelen Requests keine doppelte `R-xxx` erzeugen.
+  Sequenz oder SQLite-Transaktion verwenden und Konflikte kontrolliert wiederholen.
+  Akzeptanz: Paralleltest mit mindestens 50 POST-Requests erzeugt eindeutige Referenzen.
 
-- [ ] **SQLite-Migrationen aus dem Repository-Code lösen.**
-  Versionierte, einzeln nachvollziehbare Migrationen mit Transaktion, Rollback und
-  automatischem Backup vor Schemaänderungen einführen. Demo-Daten dürfen nicht Teil der
-  Produktionsmigration sein. Akzeptanz: Migration einer alten Testdatenbank sowie
-  Wiederanlauf nach einem simulierten Fehler sind automatisiert getestet.
+- [ ] **Migrationen und Seed-Daten trennen.**
+  Die aktuelle Migration ist funktionsfähig, aber weiter im Code gebündelt. Versionierte
+  Migrationen, Backup vor Schemaänderungen und getrennte Demo-/Produktionsdaten einführen.
+  Akzeptanz: Migration einer alten Testdatenbank und Fehler-Rollback sind automatisiert
+  geprüft.
 
-- [ ] **HTTP-Sicherheitsgrenzen explizit konfigurieren.**
-  `@fastify/helmet`, Rate Limiting, ein dokumentiertes Body-Limit und eine konfigurierbare
-  Origin-Allowlist ergänzen. Die aktuelle Freigabe für Origin `null` ist für Electron
-  nötig, sollte aber mit einem lokalen App-Token kombiniert werden. Akzeptanz: Security-
-  Header und Limits werden in Integrationstests geprüft.
+- [ ] **Backup- und Restore-Konzept erstellen.**
+  SQLite-Backups, Integritätsprüfung, Restore-Prozess und Exportumfang festlegen.
+  Akzeptanz: Ein automatisierter Restore-Test stellt eine Beispiel-Datenbank wieder her.
 
-## P1 – Stabilität, Wartbarkeit und Datenqualität
+## P1 - Stabilität, Datenqualität und Wartbarkeit
 
-- [ ] **OpenAPI als einzige Quelle für Client-Typen verwenden.**
-  `Risk` und `RiskStatus` sind in Server, Electron und Bootstrap-Client mehrfach definiert.
-  Aus `openapi.yaml` einen typisierten Client generieren und Drift in CI erkennen.
-  Akzeptanz: UI-Projekte enthalten keine manuell duplizierten API-DTOs mehr.
+- [x] **Serverseitige Pagination, Suche, Filter und Sortierung einführen.**
+  `GET /api/risks` und `GET /api/measures` liefern paginierte Ergebnisobjekte mit
+  `items`, `page`, `pageSize`, `total` und `totalPages`. Suche, Filter und Sortierung
+  sind in OpenAPI dokumentiert und durch Integrationstests abgedeckt.
 
-- [ ] **API um Pagination, Filter und Sortierung erweitern.**
-  `GET /api/risks` lädt aktuell alle Datensätze. Parameter für Seite, Seitengröße,
-  Status, Kategorie und Sortierung ergänzen und Obergrenzen setzen. Akzeptanz: Große
-  Register werden seitenweise geladen; Query-Parameter und Responses sind in OpenAPI
-  dokumentiert und getestet.
+- [ ] **OpenAPI als Quelle für Client-Typen nutzen.**
+  DTOs werden in Server, Electron und Bootstrap-Webseite mehrfach definiert. Einen
+  generierten TypeScript-Client oder zumindest generierte DTOs einführen.
+  Akzeptanz: API-Drift zwischen `openapi.yaml` und Renderer-Typen wird in CI erkannt.
 
-- [x] **Ändern und Löschen in der Electron-App implementieren.**
-  Die API unterstützt PUT und DELETE, die UI bisher nur Lesen und Anlegen. Bestätigungs-
-  dialog, Editierformular und nachvollziehbare Fehlermeldungen sind umgesetzt.
+- [ ] **Strikte Kalenderdatumsvalidierung ergänzen.**
+  Datumsfelder sollten nicht nur Format `YYYY-MM-DD`, sondern echte Kalenderdaten prüfen.
+  Akzeptanz: Schaltjahre, Monatsgrenzen und ungültige Daten sind durch Domain-Tests
+  abgedeckt.
 
-- [ ] **Fachliche Datumsprüfung korrigieren.**
-  `Date.parse` akzeptiert normalisierte, aber kalendarisch ungültige Werte wie den
-  30. Februar. Jahr, Monat und Tag strikt validieren. Akzeptanz: Schaltjahre und
-  Monatsgrenzen sind durch Domain-Unit-Tests abgedeckt.
-
-- [ ] **Fehlerantworten vervollständigen.**
-  SQLite-Constraint-Konflikte als 409 statt 500 abbilden und ein konsistentes
-  Problem-Details-Format verwenden. Interne Fehler dürfen keine vertraulichen Details
-  an Clients senden; Logs sollen die technische Ursache dennoch enthalten.
+- [ ] **Fehlerantworten vereinheitlichen.**
+  Constraint-Konflikte wie doppelte Benutzername/E-Mail/Referenz als 409 statt 400/500
+  abbilden und ein konsistentes Problem-Details-Format einführen.
+  Akzeptanz: Clients erhalten stabile Fehlercodes; technische Details bleiben in Logs.
 
 - [ ] **Health und Readiness trennen.**
-  `/health` prüft derzeit nur den Prozess, obwohl die Beschreibung SQLite erwähnt.
-  Liveness und Readiness separat anbieten; Readiness soll eine harmlose Datenbankabfrage
-  ausführen und bei Fehlern 503 liefern.
+  `/health` bleibt Liveness; ein Readiness-Endpunkt prüft SQLite und liefert bei Problemen
+  503. Akzeptanz: Integrationstest simuliert eine nicht verfügbare Datenbank.
 
-- [ ] **Tests isolieren und ausbauen.**
-  Der CRUD-Test hängt derzeit von fünf Seed-Datensätzen und `R-025` ab. Für jeden Test
-  eine eigene In-Memory-Datenbank verwenden. Zusätzlich Domain-/Use-Case-Unit-Tests,
-  Parallelitäts-, CORS-, CSP-, Electron- und Browser-End-to-End-Tests ergänzen.
+- [ ] **Tests isolieren und fachlich ausbauen.**
+  Integrationstests hängen noch an Seed-Daten und teilen sich teils App-Zustand.
+  Pro Test isolierte Datenbank, Domain-/Use-Case-Unit-Tests, Parallelitätstests und
+  UI-Smoke-Tests ergänzen.
 
 - [ ] **CI-Pipeline einrichten.**
-  Auf jedem Pull Request Installation per `npm ci`, Typecheck, Tests, Builds,
-  `npm audit`, OpenAPI-Driftprüfung und Artefaktprüfung ausführen. Akzeptanz: Ein
-  veraltetes `openapi.yaml` oder ein fehlerhafter Build blockiert den Merge.
+  `npm ci`, Typecheck, Tests, Builds, OpenAPI-Driftprüfung, `npm audit` und Artefaktprüfung
+  auf Pull Requests ausführen. Akzeptanz: veraltete OpenAPI oder fehlerhafte Builds
+  blockieren den Merge.
 
 - [ ] **Linting und Formatierung standardisieren.**
-  ESLint mit TypeScript-/React-Regeln und Prettier oder eine gleichwertige Lösung
-  ergänzen. Regeln für Floating Promises, unsichere Typen, React Hooks und Importreihenfolge
-  aktivieren. Root-Skripte `lint`, `typecheck`, `test` und `build` sollen beide Teilprojekte
-  ausführen.
+  ESLint/Prettier oder gleichwertige Regeln für TypeScript, React Hooks, Floating Promises,
+  Imports und unsichere Typen einführen. Root-Skripte für `lint`, `typecheck`, `test`,
+  `build` ergänzen.
 
-- [ ] **npm-Workspaces prüfen.**
-  Derzeit existieren drei Lockfiles und separate Installationen. Electron und Server als
-  Workspaces verwalten oder die bewusste Trennung dokumentieren. Akzeptanz: reproduzierbare
-  Installation mit einem dokumentierten Root-Befehl.
+- [ ] **Projektstruktur und Paketverwaltung entscheiden.**
+  Aktuell existieren getrennte Teilprojekte. Entweder npm-Workspaces einführen oder die
+  bewusste Trennung samt Installationsworkflow dokumentieren.
 
 - [ ] **Konfiguration validieren.**
-  `PORT`, `HOST`, `DATABASE_PATH` und `VITE_API_URL` beim Start gegen ein Schema prüfen.
-  Ungültige Ports oder unsichere Netzwerkbindungen sollen mit einer klaren Meldung
-  abbrechen.
+  `PORT`, `HOST`, `DATABASE_PATH`, `AUTH_TOKEN_SECRET` und `VITE_API_URL` beim Start gegen
+  ein Schema prüfen. Unsichere Netzwerkbindung ohne passende Sicherheitskonfiguration soll
+  mit klarer Meldung abbrechen.
 
 - [ ] **Logging und Korrelation verbessern.**
-  Request-ID bis in Use Cases/Fehlerlogs übernehmen, sensible Felder redigieren und
-  Log-Level konfigurierbar machen. Keine personenbezogenen Risikodaten ungefiltert loggen.
+  Request-ID, Log-Level-Konfiguration und Redaction für Passwörter/Tokens/personenbezogene
+  Felder ergänzen. Akzeptanz: Fehlerantwort enthält eine korrelierbare ID, Logs bleiben
+  intern aussagekräftig.
 
-## UI/UX – konkrete Elemente
+## P1 - UI/UX mit unmittelbarem Nutzen
 
-- [x] **[P1] Risiko-Detailansicht als Drawer ergänzen.**
-  Ein Klick auf eine Tabellenzeile öffnet Referenz, Beschreibung, Kategorie,
-  Verantwortliche, Initial-/Aktuellwert, Status, Fälligkeit und Zeitstempel. Der Drawer
-  besitzt klar getrennte Aktionen für Bearbeiten und Löschen und ist per Escape sowie
-  Tastaturfokus vollständig bedienbar.
+- [x] **Ungespeicherte Änderungen absichern.**
+  Risiko-, Maßnahmen-, Benutzer-, Einstellungen- und Profilformulare fragen beim Verwerfen
+  geänderter Werte nach. Einstellungen schützen zusätzlich Reload, Navigation und Fenster-Reload.
 
-- [ ] **[P1] Erfassungs- und Bearbeitungsformular vervollständigen.**
-  Status, aktueller Risikowert, Fälligkeitsdatum und eine optionale Beschreibung ergänzen.
-  Ant-Design-DatePicker statt Freitext verwenden, Feldfehler direkt am Eingabefeld zeigen
-  und das Speichern während des Requests sperren. Ungespeicherte Änderungen müssen vor
-  dem Schließen bestätigt werden.
+- [x] **DatePicker statt Freitext-Datum verwenden.**
+  Risiko- und Maßnahmenformulare nutzen Ant-Design-DatePicker mit deutscher Anzeige
+  und API-konformer Speicherung als `YYYY-MM-DD`.
 
-- [x] **[P1] Löschen mit sicherem Bestätigungsdialog umsetzen.**
-  Dialog zeigt Referenz und Titel des betroffenen Risikos, verwendet eine destruktive
-  Primäraktion und verhindert Doppelklicks. Nach Erfolg Tabelle und Kennzahlen
-  aktualisieren; bei 404/409 einen verständlichen Konflikthinweis zeigen.
-
-- [x] **[P1] Dashboard-Filter funktionsfähig machen.**
-  Der sichtbare Filter-Button im Dashboard enthält derzeit nur statische Menüeinträge.
-  Status, Kritikalität, Kategorie, Verantwortliche und Fälligkeit tatsächlich anwenden;
-  aktive Filter als entfernbare Chips darstellen und eine Aktion „Alle zurücksetzen“
-  anbieten.
-
-- [ ] **[P1] Navigation ehrlich abbilden.**
-  „Maßnahmen“, „Berichte“, „Team“ und „Einstellungen“ führen derzeit zu keiner Ansicht.
-  Bis zur Implementierung als „Demnächst“ markieren oder deaktivieren; anschließend
-  echtes Routing mit wiederherstellbarer aktiver Seite einführen.
-
-- [ ] **[P1] Verbindungsstatus zum Server anzeigen.**
+- [ ] **Server-Verbindungsstatus anzeigen.**
   Einen unaufdringlichen Online-/Offline-Indikator auf Basis von Readiness ergänzen.
-  Bei Verbindungsverlust letzte erfolgreiche Daten sichtbar lassen, Zeitpunkt der letzten
-  Synchronisierung nennen und eine manuelle Wiederholung anbieten.
+  Letzte erfolgreiche Synchronisierung anzeigen und Retry anbieten.
 
-- [ ] **[P1] Lade-, Leer- und Fehlerzustände vereinheitlichen.**
-  Tabellen-Skeleton, echte leere Ansicht mit „Erstes Risiko erfassen“, Offline-Zustand und
-  Retry-Komponente als gemeinsame UI-Bausteine verwenden. Keine Kennzahl darf während des
-  Ladens irreführend `0` anzeigen.
+- [x] **Lade-, Leer- und Fehlerzustände vereinheitlichen.**
+  Gemeinsame Komponenten für Skeleton, leere Ansicht, Retry/Offline-Hinweise und
+  Lade-Kennzahlen sind in Dashboard, Risiken, Maßnahmen, Berichten und Admin-Ansichten im Einsatz.
 
-- [ ] **[P1] Tabellenbedienung erweitern.**
-  Serverseitige Pagination, Sortierung und Filter anbinden; Spalten ein-/ausblendbar und
-  Breiten persistent machen. Die aktuelle Auswahl und Seite sollen nach Bearbeitung oder
-  Refresh erhalten bleiben.
+- [x] **Tabellenzustand persistieren.**
+  Risiko-, Maßnahmen- und Benutzer-Tabellen behalten Suche/Filter, Sortierung, Seite und
+  geänderte Spaltenbreiten je Ansicht in `localStorage`.
 
-- [ ] **[P1] Erfolgs- und Fehlermeldungen standardisieren.**
-  Gemeinsame Toast-Texte für Erstellen, Ändern und Löschen definieren. Technische
-  Fehlermeldungen nicht ungefiltert anzeigen; bei Fehlern eine korrelierbare Request-ID
-  und eine sinnvolle nächste Aktion anbieten.
+- [x] **Dashboard-Verknüpfungen vertiefen.**
+  Kritische Risiken, offene Maßnahmen sowie fällige/überfällige Maßnahmen springen aus dem
+  Dashboard in die passende Übersicht und setzen dort einen sichtbaren Filter.
 
-- [ ] **[P2] 5×5-Risikomatrix visualisieren.**
-  Eintrittswahrscheinlichkeit und Auswirkung als eigene fachliche Werte modellieren und
-  Risiken in einer barrierefreien Heatmap darstellen. Jede Zelle benötigt neben Farbe
-  auch Text/Zahl, Tooltip und Tastaturzugriff.
+- [ ] **Profil-UX abrunden.**
+  Aktuelles Passwort vor Passwortänderung abfragen, Passwortbestätigung ergänzen und nach
+  Änderung optional alle anderen Sessions invalidieren.
 
-- [ ] **[P2] Maßnahmenansicht implementieren.**
-  Pro Risiko Maßnahmen mit Verantwortlichen, Termin und Status anzeigen. Überfällige
-  Maßnahmen hervorheben und vom Dashboard direkt in die gefilterte Maßnahmenliste
-  navigieren.
+- [ ] **Barrierefreiheit prüfen.**
+  Tastaturbedienung, sichtbarer Fokus, Drawer-/Modal-Fokusführung, Screenreader-Texte,
+  Kontraste und Tabellenbeschriftungen prüfen.
 
-- [ ] **[P2] Risikoentwicklung und Audit-Timeline darstellen.**
-  Änderungen an Wert, Status, Owner und Termin chronologisch anzeigen. Ein kleines
-  Trenddiagramm visualisiert die Wertentwicklung, ohne historische Daten zu überschreiben.
+- [ ] **Bootstrap-Serverseite fachlich festlegen.**
+  Entscheiden, ob sie bewusst read-only bleibt oder Login/Schreibzugriff erhält.
+  Bei read-only klar kennzeichnen; bei Schreibzugriff dieselben Auth- und Validierungsregeln
+  wie in Electron verwenden.
 
-- [ ] **[P2] Berichts-Dashboard ergänzen.**
-  Verteilung nach Kategorie/Status, Top-Risiken, überfällige Risiken und zeitliche Trends
-  mit zugänglichen Diagrammen anzeigen. Diagramme benötigen Tabellenalternative und
-  dürfen nicht nur über Farbe kommunizieren.
+## P2 - Fachliche Erweiterungen
 
-- [ ] **[P2] Export-UI anbieten.**
-  Aktuelle Filterauswahl als CSV/JSON exportieren und vor dem Export Anzahl sowie Umfang
-  bestätigen. Dateiname enthält Datum, Export darf keine intern nicht sichtbaren Felder
-  oder Secrets enthalten.
+- [ ] **Maßnahmen enger an Risiken koppeln.**
+  Optional automatische Vorschläge aus kritischen Risiken erzeugen, Maßnahmenstatus in der
+  Risiko-Detailansicht anzeigen und direkte Navigation Risiko -> Maßnahmen ermöglichen.
 
-- [ ] **[P2] Responsive Verhalten verbessern.**
-  Für schmale Fenster Karten stapeln, Toolbar umbrechen und Tabellen optional als
-  kompakte Karten darstellen. Zielgrößen: mindestens 1024×700 in Electron sowie
-  Bootstrap-Seite ab 360 px ohne horizontales Abschneiden zentraler Aktionen.
+- [ ] **Audit-Timeline einführen.**
+  Änderungen an Risiko, Maßnahme, Benutzer und Einstellungen chronologisch speichern und
+  anzeigen. Akzeptanz: Wer/Was/Wann ist nachvollziehbar, ohne nur `updatedAt` zu nutzen.
 
-- [ ] **[P2] Design-System dokumentieren.**
-  Farben, Abstände, Typografie, Risikostufen, Statusfarben, Fokuszustände und Komponenten-
-  Varianten als Tokens definieren. Ant Design und Bootstrap sollen dieselbe fachliche
-  Farbbedeutung verwenden; Dark Mode erst nach geprüften Kontrastwerten ergänzen.
+- [ ] **Risikohistorie und Trenddiagramme ergänzen.**
+  Historische Werte für `currentScore`, Status und Review speichern und als Trend darstellen.
 
-- [ ] **[P2] Tastaturkürzel und Fokusmanagement ergänzen.**
-  Beispielsweise `Strg+N` für neues Risiko und `/` für Suche. Nach Modal-/Drawer-Schließen
-  Fokus zum auslösenden Element zurückgeben; Kürzel dokumentieren und in Eingabefeldern
-  keine Browser-/Systemkürzel überschreiben.
+- [ ] **5x5-Risikomatrix modellieren.**
+  Eintrittswahrscheinlichkeit und Auswirkung als eigene Werte führen und daraus Score
+  berechnen. Matrix barrierefrei mit Text, Tooltip und Tastaturzugriff darstellen.
 
-- [ ] **[P2] Funktionsumfang der Bootstrap-Seite festlegen.**
-  Entscheiden, ob sie bewusst read-only bleibt oder Erstellen/Bearbeiten unterstützen
-  soll. Bei read-only diesen Zustand sichtbar kennzeichnen; bei Schreibzugriff dieselben
-  Authentisierungs-, Validierungs- und Bestätigungsregeln wie in Electron verwenden.
+- [ ] **Berichte ausbauen.**
+  Zeitraumfilter mit echten historischen Daten, überfällige Reviews/Maßnahmen, Top-Risiken,
+  Kategorien und Export vorbereiten. Diagramme brauchen Tabellenalternative.
 
-## P2 – Betrieb und Produktreife
+- [ ] **Export anbieten.**
+  CSV/JSON-Export für Risiken, Maßnahmen und Berichte mit aktueller Filterauswahl,
+  Umfangsbestätigung und datenschutzbewusster Feldauswahl.
 
-- [ ] **Backup, Restore und Export anbieten.**
-  Dokumentierte SQLite-Backups, Integritätsprüfung und Export nach CSV/JSON ergänzen.
-  Wiederherstellung regelmäßig automatisiert testen.
+- [ ] **Benachrichtigungen und Erinnerungen planen.**
+  Review- und Maßnahmenfälligkeiten als lokale App-Hinweise oder Berichtsliste anbieten.
+  Spätere E-Mail/Teams-Integration nur mit klarer Konfiguration.
 
-- [ ] **Synchrones SQLite bei wachsender Last bewerten.**
-  `node:sqlite` blockiert synchron den Event Loop. Für die lokale Einzelplatznutzung ist
-  das vertretbar; bei Mehrbenutzerbetrieb Worker Thread oder externes DBMS evaluieren.
+## P2 - Betrieb und Produktreife
 
-- [ ] **Electron paketieren und signieren.**
-  Reproduzierbare Installer, Code Signing, Update-Strategie und sichere Release-Pipeline
-  definieren. Produktions-Builds dürfen keine DevTools oder unnötigen Debug-Schalter
-  aktivieren.
+- [ ] **Electron paketieren, signieren und Release-Prozess definieren.**
+  Installer, Code Signing, Update-Strategie und sichere Release-Pipeline festlegen.
+  Produktions-Builds dürfen keine DevTools oder unnötigen Debug-Schalter aktivieren.
 
 - [ ] **Preload-Skript bereinigen.**
-  Das aktuelle Preload-Skript aktualisiert nicht mehr vorhandene Versionsfelder. Entweder
-  entfernen oder ausschließlich eine minimale, versionierte API über `contextBridge`
-  bereitstellen; keine generischen IPC-Kanäle exponieren.
+  Das aktuelle Preload-Skript schreibt Versionen in DOM-Elemente, die im Renderer kaum noch
+  fachlichen Nutzen haben. Entfernen oder auf eine minimale, versionierte `contextBridge`-API
+  reduzieren.
 
-- [ ] **Barrierefreiheit testen.**
-  Tastaturnavigation, sichtbare Fokuszustände, Tabellenbeschriftungen, Kontraste,
-  Screenreader-Texte und reduzierte Animationen für Electron und Bootstrap-Seite prüfen.
+- [ ] **Renderer-Bundle aufteilen.**
+  Der Electron-Build erzeugt weiterhin einen großen initialen Chunk. Views dynamisch laden
+  und ein bewusstes Bundle-Budget in CI prüfen.
 
-- [ ] **UI-Zustände und Datenaktualisierung vereinheitlichen.**
-  Dashboard und Risikoübersicht verwenden teilweise eigene Filter-/Darstellungslogik.
-  Gemeinsame Präsentationsfunktionen und einen Query-Cache mit kontrollierter
-  Revalidierung einführen.
-
-- [ ] **Electron-Renderer aufteilen.**
-  Der aktuelle Vite-Produktionsbuild erzeugt ein JavaScript-Bundle von rund 1,10 MB
-  (ca. 344 KB gzip). Seiten und schwere Ant-Design-Bereiche per Dynamic Import laden und
-  Bundlegrößen in CI begrenzen. Akzeptanz: kein initialer Chunk überschreitet das bewusst
-  festgelegte Budget; die Vite-Warnung wird durch echte Aufteilung beseitigt.
+- [ ] **Synchrones SQLite bei Mehrbenutzerlast bewerten.**
+  `node:sqlite` blockiert synchron den Event Loop. Für lokale Einzelplatznutzung vertretbar;
+  bei Netzwerk-/Mehrbenutzerbetrieb Worker Thread oder anderes DBMS evaluieren.
 
 - [ ] **Dokumentation vervollständigen.**
-  Architekturdiagramm, Threat Model, Datenmodell, Konfigurationsreferenz, Backup-Anleitung,
-  Entwicklungsworkflow und Release-Prozess ergänzen.
+  Architektur, Datenmodell, Rollenmodell, API-Nutzung, Konfiguration, Backup/Restore,
+  Sicherheitsannahmen, Entwicklungsworkflow und Release-Prozess dokumentieren.
+
+- [ ] **Design-System dokumentieren.**
+  Farben, Abstände, Typografie, Risikostufen, Statusfarben, Fokuszustände und Komponenten-
+  Varianten als Tokens definieren. Ant Design und Bootstrap sollen dieselbe fachliche
+  Farbbedeutung verwenden.

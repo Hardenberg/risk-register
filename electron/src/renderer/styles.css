@@ -23,6 +23,102 @@ body {
   overflow-x: auto;
 }
 
+.login-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: minmax(380px, .95fr) minmax(440px, 1fr);
+  background: #f4f5fa;
+}
+
+.login-brand-panel {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 58px;
+  color: #fff;
+  background:
+    linear-gradient(145deg, rgb(23 23 45 / 98%), rgb(39 39 82 / 96) 56%, rgb(38 77 86 / 94)),
+    #17172d;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.login-brand span span {
+  color: #9ee5d9;
+}
+
+.login-copy-block {
+  max-width: 460px;
+}
+
+.login-copy-block .eyebrow {
+  color: #9ee5d9;
+}
+
+.login-copy-block h1 {
+  margin: 10px 0 8px !important;
+  color: #fff !important;
+  font-size: 42px;
+  letter-spacing: 0;
+}
+
+.login-copy-block .ant-typography {
+  color: rgb(255 255 255 / 78%);
+  font-size: 16px;
+}
+
+.login-panel {
+  display: grid;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 58px;
+}
+
+.login-form-card {
+  width: min(430px, 100%);
+  padding: 34px;
+  border: 1px solid #e8e8ef;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 16px 45px rgb(35 35 65 / 9%);
+}
+
+.login-form-heading {
+  margin-bottom: 24px;
+}
+
+.login-form-heading h2 {
+  margin: 0 0 4px !important;
+  font-size: 27px;
+  letter-spacing: 0;
+}
+
+.login-alert {
+  margin-bottom: 18px;
+  border-radius: 12px;
+}
+
+.login-form .ant-form-item-label > label {
+  color: #656477;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.login-form .ant-input-affix-wrapper {
+  min-height: 44px;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -223,6 +319,23 @@ body {
   box-shadow: 0 5px 22px rgb(40 40 70 / 4%);
 }
 
+.clickable-stat-card {
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.clickable-stat-card:hover,
+.clickable-stat-card:focus-visible {
+  border-color: #c9c3f6 !important;
+  box-shadow: 0 9px 26px rgb(40 40 70 / 9%);
+  transform: translateY(-1px);
+}
+
+.clickable-stat-card:focus-visible {
+  outline: 2px solid #7c6ee6;
+  outline-offset: 3px;
+}
+
 .critical-card::before {
   position: absolute;
   top: 0;
@@ -249,6 +362,17 @@ body {
 .stat-card > .ant-card-body > .ant-typography,
 .stat-card .ant-tag {
   font-size: 11px;
+}
+
+.stat-links {
+  align-items: flex-start;
+}
+
+.stat-card .stat-link {
+  height: auto;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .stat-icon {
@@ -371,6 +495,63 @@ body {
   margin-top: 24px;
 }
 
+.risk-edit-modal .ant-modal-content {
+  overflow: hidden;
+  padding: 0;
+}
+
+.risk-edit-modal .ant-modal-header {
+  margin: 0;
+  padding: 22px 24px 14px;
+  border-bottom: 1px solid #eeeef3;
+}
+
+.risk-edit-modal .ant-modal-body {
+  padding: 22px 24px 4px;
+}
+
+.risk-edit-modal .ant-modal-footer {
+  margin-top: 0;
+  padding: 14px 24px 22px;
+  border-top: 1px solid #eeeef3;
+}
+
+.risk-edit-form {
+  margin-top: 0;
+}
+
+.risk-edit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 16px;
+}
+
+.risk-edit-form .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.risk-edit-form .ant-form-item-label {
+  padding-bottom: 6px;
+}
+
+.risk-edit-form .ant-form-item-label > label {
+  height: auto;
+  color: #656477;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.risk-edit-form .ant-input,
+.risk-edit-form .ant-input-number,
+.risk-edit-form .ant-picker,
+.risk-edit-form .ant-select-single {
+  min-height: 38px;
+}
+
+.risk-edit-form .ant-input-number-input {
+  height: 36px;
+}
+
 .full-width {
   width: 100%;
 }
@@ -379,6 +560,101 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.actions-overview,
+.reports-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.actions-progress {
+  padding: 18px 22px 10px;
+  border-bottom: 1px solid #eeeef3;
+}
+
+.report-period-select {
+  width: 130px;
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+  gap: 16px;
+}
+
+.report-panel {
+  border: 1px solid #e8e8ef !important;
+  box-shadow: 0 8px 28px rgb(35 35 65 / 5%);
+}
+
+.report-panel h4 {
+  margin: 0 0 14px !important;
+  font-size: 16px;
+}
+
+.report-panel-large {
+  grid-row: span 3;
+}
+
+.report-panel-heading {
+  margin-bottom: 16px;
+}
+
+.report-panel-heading h4 {
+  margin-bottom: 3px !important;
+}
+
+.distribution-list,
+.review-report-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.distribution-row .ant-progress {
+  display: block;
+  margin-top: 4px;
+}
+
+.metric-line {
+  padding: 10px 0;
+  border-bottom: 1px solid #eeeef3;
+}
+
+.metric-line:last-child {
+  border-bottom: 0;
+}
+
+.users-management {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-management {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-card {
+  max-width: 760px;
+  border: 1px solid #e8e8ef !important;
+  box-shadow: 0 8px 28px rgb(35 35 65 / 5%);
+}
+
+.user-table .ant-table-thead > tr > th {
+  height: 44px;
+  border-bottom: 1px solid #eeeef3;
+  font-size: 10px;
+  letter-spacing: .7px;
+}
+
+.user-table .ant-table-tbody > tr > td {
+  padding-top: 15px;
+  padding-bottom: 15px;
 }
 
 .overview-heading h2 {
@@ -440,6 +716,88 @@ body {
   font-size: 11px;
 }
 
+.state-alert {
+  border-radius: 12px;
+}
+
+.table-skeleton {
+  padding: 22px;
+  border-bottom: 1px solid #eeeef3;
+}
+
+.empty-state {
+  padding: 34px 22px;
+}
+
+.empty-state h5 {
+  margin: 0 !important;
+}
+
+.loading-statistic {
+  min-height: 73px;
+}
+
+.loading-statistic-title {
+  display: block;
+  margin-bottom: 11px;
+  font-size: 12px;
+}
+
+.loading-statistic-value {
+  width: 82px !important;
+}
+
+.inline-loading-text {
+  width: 118px !important;
+  height: 16px !important;
+  min-width: 0 !important;
+}
+
+.offline-state {
+  padding: 10px 14px;
+  border: 1px solid #f0d5a6;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  background: #fff8ec;
+}
+
+.resizable-column-title {
+  position: relative;
+  display: inline-flex;
+  min-height: 22px;
+  max-width: 100%;
+  align-items: center;
+  padding-right: 11px;
+}
+
+.resizable-column-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.column-resize-handle {
+  position: absolute;
+  top: -13px;
+  right: -9px;
+  bottom: -13px;
+  width: 13px;
+  cursor: col-resize;
+}
+
+.column-resize-handle::after {
+  position: absolute;
+  top: 13px;
+  right: 6px;
+  bottom: 13px;
+  width: 1px;
+  background: transparent;
+  content: "";
+}
+
+.column-resize-handle:hover::after {
+  background: #b8b2ee;
+}
+
 .clickable-risk-row {
   cursor: pointer;
 }
@@ -456,10 +814,6 @@ body {
   margin: 2px 0 8px !important;
 }
 
-.flex-field {
-  flex: 1;
-}
-
 @media (max-width: 1200px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -467,5 +821,19 @@ body {
 
   .overview-summary-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-panel-large {
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .risk-edit-grid {
+    grid-template-columns: 1fr;
   }
 }

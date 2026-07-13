@@ -1,19 +1,23 @@
 import type { FastifyInstance } from 'fastify'
 
-import { riskStatuses } from '../../domain/entities/risk.js'
+import { reviewCycles, riskStatuses } from '../../domain/entities/risk.js'
 
 const riskExample = {
   id: '01J00000000000000000000001',
   reference: 'R-024',
   title: 'Lieferengpass bei Kernkomponenten',
+  description: 'Risiko von Lieferverzögerungen bei kritischen Kernkomponenten mit möglicher Auswirkung auf Produktion und Kundenliefertermine.',
   category: 'Lieferkette',
   owner: 'Lena Vogt',
   initialScore: 22,
   currentScore: 18,
   status: 'In Bearbeitung',
   dueDate: '2026-07-18',
+  reviewDate: '2026-07-18',
+  reviewCycle: 'Quartalsweise',
   createdAt: '2026-07-01T08:00:00.000Z',
-  updatedAt: '2026-07-07T10:30:00.000Z'
+  updatedAt: '2026-07-07T10:30:00.000Z',
+  deletedAt: null
 } as const
 
 const editableProperties = {
@@ -23,6 +27,13 @@ const editableProperties = {
     maxLength: 200,
     description: 'Kurze, eindeutige Bezeichnung des Risikos.',
     examples: ['Lieferengpass bei Kernkomponenten']
+  },
+  description: {
+    type: 'string',
+    minLength: 1,
+    maxLength: 2000,
+    description: 'Fachliche Beschreibung des Risikos, seiner Ursache oder möglichen Auswirkung.',
+    examples: [riskExample.description]
   },
   category: {
     type: 'string',
@@ -62,6 +73,17 @@ const editableProperties = {
     anyOf: [{ type: 'string', format: 'date' }, { type: 'null' }],
     description: 'Geplantes Fälligkeitsdatum im Format YYYY-MM-DD oder null.',
     examples: ['2026-07-18']
+  },
+  reviewDate: {
+    anyOf: [{ type: 'string', format: 'date' }, { type: 'null' }],
+    description: 'Datum der nächsten fachlichen Überprüfung im Format YYYY-MM-DD. Bei Fix ist ein Datum erforderlich; bei wiederkehrenden Rhythmen wird es serverseitig berechnet.',
+    examples: [riskExample.reviewDate]
+  },
+  reviewCycle: {
+    type: 'string',
+    enum: reviewCycles,
+    description: 'Konfigurierbarer Rhythmus für die fachliche Überprüfung. Bei Fix ist reviewDate manuell, bei anderen Rhythmen wird reviewDate berechnet.',
+    examples: [riskExample.reviewCycle]
   }
 } as const
 
@@ -99,11 +121,17 @@ export function registerRiskSchemas (app: FastifyInstance): void {
         readOnly: true,
         description: 'Zeitpunkt der letzten Änderung im ISO-8601-Format.',
         examples: [riskExample.updatedAt]
+      },
+      deletedAt: {
+        anyOf: [{ type: 'string', format: 'date-time' }, { type: 'null' }],
+        readOnly: true,
+        description: 'Zeitpunkt der Löschmarkierung oder null bei aktiven Risiken.',
+        examples: [riskExample.deletedAt]
       }
     },
     required: [
-      'id', 'reference', 'title', 'category', 'owner', 'initialScore',
-      'currentScore', 'status', 'dueDate', 'createdAt', 'updatedAt'
+      'id', 'reference', 'title', 'description', 'category', 'owner', 'initialScore',
+      'currentScore', 'status', 'dueDate', 'reviewDate', 'reviewCycle', 'createdAt', 'updatedAt', 'deletedAt'
     ],
     examples: [riskExample]
   })
@@ -115,15 +143,18 @@ export function registerRiskSchemas (app: FastifyInstance): void {
     type: 'object',
     additionalProperties: false,
     properties: editableProperties,
-    required: ['title', 'category', 'owner', 'initialScore'],
+    required: ['title', 'description', 'category', 'owner', 'initialScore'],
     examples: [{
       title: riskExample.title,
+      description: riskExample.description,
       category: riskExample.category,
       owner: riskExample.owner,
       initialScore: riskExample.initialScore,
       currentScore: riskExample.currentScore,
       status: riskExample.status,
-      dueDate: riskExample.dueDate
+      dueDate: riskExample.dueDate,
+      reviewDate: riskExample.reviewDate,
+      reviewCycle: riskExample.reviewCycle
     }]
   })
 
@@ -139,6 +170,25 @@ export function registerRiskSchemas (app: FastifyInstance): void {
   })
 
   app.addSchema({
+    $id: 'RiskPage',
+    title: 'RiskPage',
+    description: 'Paginierte Ergebnisliste für Risiken.',
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      items: {
+        type: 'array',
+        items: { $ref: 'Risk#' }
+      },
+      page: { type: 'integer', minimum: 1, examples: [1] },
+      pageSize: { type: 'integer', minimum: 1, maximum: 500, examples: [25] },
+      total: { type: 'integer', minimum: 0, examples: [42] },
+      totalPages: { type: 'integer', minimum: 1, examples: [2] }
+    },
+    required: ['items', 'page', 'pageSize', 'total', 'totalPages']
+  })
+
+  app.addSchema({
     $id: 'ErrorResponse',
     title: 'ErrorResponse',
     description: 'Einheitliche Fehlerantwort der Risk-Register-API.',
@@ -147,7 +197,7 @@ export function registerRiskSchemas (app: FastifyInstance): void {
     properties: {
       code: {
         type: 'string',
-        enum: ['VALIDATION_ERROR', 'RISK_NOT_FOUND', 'INTERNAL_ERROR'],
+        enum: ['VALIDATION_ERROR', 'RISK_NOT_FOUND', 'MEASURE_NOT_FOUND', 'USER_NOT_FOUND', 'AUTH_FAILED', 'FORBIDDEN', 'INTERNAL_ERROR'],
         examples: ['RISK_NOT_FOUND']
       },
       message: {
@@ -171,6 +221,7 @@ export function registerRiskSchemas (app: FastifyInstance): void {
 }
 
 export const riskReference = { $ref: 'Risk#' } as const
+export const riskPageReference = { $ref: 'RiskPage#' } as const
 export const createRiskReference = { $ref: 'CreateRisk#' } as const
 export const updateRiskReference = { $ref: 'UpdateRisk#' } as const
 export const errorReference = { $ref: 'ErrorResponse#' } as const

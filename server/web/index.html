@@ -8,7 +8,7 @@
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
     />
     <meta name="theme-color" content="#16182d" />
-    <title>Risk Register · Server</title>
+    <title>Risk Register - Server</title>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark app-navbar">
@@ -20,75 +20,223 @@
         <div class="d-flex align-items-center gap-3 text-white-50 small">
           <span class="live-dot"></span>
           Fastify · SQLite
+          <span id="session-user" class="session-user d-none"></span>
+          <button id="logout-button" class="btn btn-sm btn-outline-light d-none" type="button">Abmelden</button>
           <a class="btn btn-sm btn-outline-light" href="/docs">API Docs</a>
         </div>
       </div>
     </nav>
 
     <main class="container-xl py-5">
-      <section class="hero mb-4">
+      <section id="login-view" class="login-layout">
         <div>
-          <p class="eyebrow mb-2">RISIKOMANAGEMENT</p>
-          <h1 class="display-6 fw-bold mb-2">Risiken im Blick</h1>
-          <p class="text-secondary mb-0">Eine kompakte Live-Ansicht der Daten aus der Risk-Register-API.</p>
+          <p class="eyebrow mb-2">SERVERANMELDUNG</p>
+          <h1 class="display-6 fw-bold mb-2">Risk Register</h1>
+          <p class="text-secondary mb-0">Bitte anmelden, um Risiken und Benutzer auf dem Server zu verwalten.</p>
         </div>
-        <button id="refresh-button" class="btn btn-primary px-4" type="button">
-          <span id="refresh-spinner" class="spinner-border spinner-border-sm d-none me-2" aria-hidden="true"></span>
-          Aktualisieren
-        </button>
-      </section>
-
-      <div id="error-alert" class="alert alert-danger d-none" role="alert"></div>
-
-      <section class="row g-3 mb-4" aria-label="Kennzahlen">
-        <div class="col-6 col-lg-3">
-          <div class="card stat-card h-100"><div class="card-body">
-            <p class="stat-label">Risiken gesamt</p><p id="total-count" class="stat-value">–</p>
-          </div></div>
-        </div>
-        <div class="col-6 col-lg-3">
-          <div class="card stat-card stat-critical h-100"><div class="card-body">
-            <p class="stat-label">Kritisch</p><p id="critical-count" class="stat-value text-danger">–</p>
-          </div></div>
-        </div>
-        <div class="col-6 col-lg-3">
-          <div class="card stat-card h-100"><div class="card-body">
-            <p class="stat-label">In Bearbeitung</p><p id="active-count" class="stat-value text-primary">–</p>
-          </div></div>
-        </div>
-        <div class="col-6 col-lg-3">
-          <div class="card stat-card h-100"><div class="card-body">
-            <p class="stat-label">Geschlossen</p><p id="closed-count" class="stat-value text-success">–</p>
-          </div></div>
-        </div>
-      </section>
-
-      <section class="card table-card">
-        <div class="card-header bg-white border-0 p-4">
-          <div class="row g-3 align-items-center">
-            <div class="col-lg-7">
-              <h2 class="h5 fw-bold mb-1">Alle Risiken</h2>
-              <p class="text-secondary small mb-0">Nach aktuellem Risikowert priorisiert</p>
+        <form id="login-form" class="card login-card" autocomplete="on">
+          <div class="card-body p-4">
+            <h2 class="h5 fw-bold mb-1">Anmelden</h2>
+            <p class="text-secondary small mb-4">Username oder E-Mail und Passwort eingeben.</p>
+            <div id="login-alert" class="alert alert-danger d-none" role="alert"></div>
+            <div class="mb-3">
+              <label class="form-label" for="login-username">Benutzername oder E-Mail</label>
+              <input id="login-username" class="form-control" name="username" autocomplete="username" required />
             </div>
-            <div class="col-lg-5">
-              <label class="visually-hidden" for="risk-search">Risiken durchsuchen</label>
-              <input id="risk-search" class="form-control" type="search" placeholder="Referenz, Risiko oder Verantwortliche suchen" />
+            <div class="mb-4">
+              <label class="form-label" for="login-password">Passwort</label>
+              <input id="login-password" class="form-control" name="password" type="password" autocomplete="current-password" required />
+            </div>
+            <button id="login-button" class="btn btn-primary w-100" type="submit">
+              <span id="login-spinner" class="spinner-border spinner-border-sm d-none me-2" aria-hidden="true"></span>
+              Anmelden
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section id="app-view" class="d-none">
+        <section class="hero mb-4">
+          <div>
+            <p class="eyebrow mb-2">RISIKOMANAGEMENT</p>
+            <h1 class="display-6 fw-bold mb-2">Risiken im Blick</h1>
+            <p class="text-secondary mb-0">Eine kompakte Live-Ansicht der Daten aus der Risk-Register-API.</p>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="btn-group" role="group" aria-label="Ansicht wechseln">
+              <button id="show-risks-button" class="btn btn-primary" type="button">Risiken</button>
+              <button id="show-users-button" class="btn btn-outline-primary" type="button">Benutzerverwaltung</button>
+              <button id="show-settings-button" class="btn btn-outline-primary" type="button">Einstellungen</button>
+            </div>
+            <button id="refresh-button" class="btn btn-outline-secondary px-4" type="button">
+              <span id="refresh-spinner" class="spinner-border spinner-border-sm d-none me-2" aria-hidden="true"></span>
+              Aktualisieren
+            </button>
+          </div>
+        </section>
+
+        <div id="error-alert" class="alert alert-danger d-none" role="alert"></div>
+
+        <section id="risks-view">
+          <section class="row g-3 mb-4" aria-label="Kennzahlen">
+            <div class="col-6 col-lg-3">
+              <div class="card stat-card h-100"><div class="card-body">
+                <p class="stat-label">Risiken gesamt</p><p id="total-count" class="stat-value">-</p>
+              </div></div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card stat-card stat-critical h-100"><div class="card-body">
+                <p class="stat-label">Kritisch</p><p id="critical-count" class="stat-value text-danger">-</p>
+              </div></div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card stat-card h-100"><div class="card-body">
+                <p class="stat-label">In Bearbeitung</p><p id="active-count" class="stat-value text-primary">-</p>
+              </div></div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card stat-card h-100"><div class="card-body">
+                <p class="stat-label">Geschlossen</p><p id="closed-count" class="stat-value text-success">-</p>
+              </div></div>
+            </div>
+          </section>
+
+          <section class="card table-card">
+            <div class="card-header bg-white border-0 p-4">
+              <div class="row g-3 align-items-center">
+                <div class="col-lg-7">
+                  <h2 class="h5 fw-bold mb-1">Alle Risiken</h2>
+                  <p class="text-secondary small mb-0">Nach aktuellem Risikowert priorisiert</p>
+                </div>
+                <div class="col-lg-5">
+                  <label class="visually-hidden" for="risk-search">Risiken durchsuchen</label>
+                  <input id="risk-search" class="form-control" type="search" placeholder="Referenz, Risiko oder Verantwortliche suchen" />
+                </div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Referenz</th><th>Risiko</th><th>Verantwortlich</th><th>Risikowert</th><th>Status</th><th>Fällig</th>
+                  </tr>
+                </thead>
+                <tbody id="risk-table-body"></tbody>
+              </table>
+            </div>
+            <div class="card-footer bg-white border-0 px-4 py-3">
+              <small id="result-count" class="text-secondary">Bitte anmelden.</small>
+            </div>
+          </section>
+        </section>
+
+        <section id="users-view" class="d-none">
+          <div class="row g-4">
+            <div class="col-lg-8">
+              <section class="card table-card">
+                <div class="card-header bg-white border-0 p-4">
+                  <h2 class="h5 fw-bold mb-1">Benutzerverwaltung</h2>
+                  <p class="text-secondary small mb-0">Benutzer anlegen, bearbeiten und deaktivieren.</p>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Benutzer</th><th>Mail</th><th>Abteilung</th><th>Status</th><th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="user-table-body"></tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+            <div class="col-lg-4">
+              <form id="user-form" class="card user-form-card">
+                <div class="card-body p-4">
+                  <h2 id="user-form-title" class="h5 fw-bold mb-3">Benutzer anlegen</h2>
+                  <input id="user-id" type="hidden" />
+                  <div class="mb-3">
+                    <label class="form-label" for="user-username">Username</label>
+                    <input id="user-username" class="form-control" required minlength="3" maxlength="80" />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label" for="user-name">Name</label>
+                    <input id="user-name" class="form-control" required maxlength="200" />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label" for="user-email">Mail</label>
+                    <input id="user-email" class="form-control" type="email" required maxlength="254" />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label" for="user-department">Abteilung</label>
+                    <input id="user-department" class="form-control" required maxlength="200" />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label" for="user-role">Rolle</label>
+                    <select id="user-role" class="form-select" required>
+                      <option value="User">User</option>
+                      <option value="Admin">Admin</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label" for="user-password">Passwort</label>
+                    <input id="user-password" class="form-control" type="password" minlength="8" autocomplete="new-password" />
+                    <div id="password-help" class="form-text">Pflicht beim Anlegen, beim Bearbeiten optional.</div>
+                  </div>
+                  <div class="form-check form-switch mb-4">
+                    <input id="user-active" class="form-check-input" type="checkbox" checked />
+                    <label class="form-check-label" for="user-active">Benutzer aktiv</label>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button id="save-user-button" class="btn btn-primary flex-grow-1" type="submit">Speichern</button>
+                    <button id="reset-user-form-button" class="btn btn-outline-secondary" type="button">Neu</button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead>
-              <tr>
-                <th>Referenz</th><th>Risiko</th><th>Verantwortlich</th><th>Risikowert</th><th>Status</th><th>Fällig</th>
-              </tr>
-            </thead>
-            <tbody id="risk-table-body"></tbody>
-          </table>
-        </div>
-        <div class="card-footer bg-white border-0 px-4 py-3">
-          <small id="result-count" class="text-secondary">Daten werden geladen …</small>
-        </div>
+        </section>
+
+        <section id="settings-view" class="d-none">
+          <form id="settings-form" class="card settings-form-card">
+            <div class="card-body p-4">
+              <h2 class="h5 fw-bold mb-1">Einstellungen</h2>
+              <p class="text-secondary small mb-4">Minimalset für Admins: Organisation, Review und Risikoschwellen.</p>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="setting-organization-name">Organisation</label>
+                  <input id="setting-organization-name" class="form-control" required maxlength="120" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="setting-default-review-cycle">Standard-Review</label>
+                  <select id="setting-default-review-cycle" class="form-select" required>
+                    <option value="Fix">Fix</option>
+                    <option value="Monatlich">Monatlich</option>
+                    <option value="Quartalsweise">Quartalsweise</option>
+                    <option value="Halbjährlich">Halbjährlich</option>
+                    <option value="Jährlich">Jährlich</option>
+                    <option value="2-jährlich">2-jährlich</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="setting-review-reminder-days">Review-Erinnerung</label>
+                  <input id="setting-review-reminder-days" class="form-control" type="number" min="0" max="365" required />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="setting-high-risk-threshold">Schwelle Hoch</label>
+                  <input id="setting-high-risk-threshold" class="form-control" type="number" min="1" max="25" required />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="setting-critical-risk-threshold">Schwelle Kritisch</label>
+                  <input id="setting-critical-risk-threshold" class="form-control" type="number" min="1" max="25" required />
+                </div>
+              </div>
+              <div class="mt-4">
+                <button id="save-settings-button" class="btn btn-primary" type="submit">Einstellungen speichern</button>
+              </div>
+            </div>
+          </form>
+        </section>
       </section>
     </main>
 

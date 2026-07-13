@@ -1,12 +1,12 @@
 import {
   AlertOutlined,
+  MoreOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
   UserOutlined
 } from '@ant-design/icons'
 import {
-  Alert,
   Avatar,
   Button,
   Card,
@@ -15,23 +15,33 @@ import {
   Progress,
   Select,
   Space,
-  Statistic,
   Table,
   Tag,
   Typography,
+  type TablePaginationConfig,
   type TableProps
 } from 'antd'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { Risk, RiskStatus, UpdateRiskInput } from './api/risks'
+import { usePersistentState } from './persistentState'
+import { ResizableColumnTitle, sumColumnWidths, useColumnResize } from './resizableColumns'
 import { RiskDetailDrawer } from './RiskDetailDrawer'
+import { AppEmptyState, AppErrorState, LoadingStatistic, LoadingText, TableSkeleton } from './uiStates'
 
 const { Text, Title } = Typography
+
+export interface RiskOverviewPreset {
+  id: number
+  criticalOnly?: boolean
+  status?: RiskStatus
+}
 
 interface RisksOverviewProps {
   risks: Risk[]
   loading: boolean
   error: string | null
+  preset?: RiskOverviewPreset
   onReload: () => void
   onCreate: () => void
   onUpdate: (id: string, input: UpdateRiskInput) => Promise<void>
@@ -43,6 +53,44 @@ const statusColors: Record<RiskStatus, string> = {
   'In Bearbeitung': 'blue',
   Überwacht: 'purple',
   Geschlossen: 'green'
+}
+
+const riskTableStorageKey = 'risk-register:risks-overview:table-state:v1'
+const riskColumnDefaults = {
+  reference: 110,
+  title: 360,
+  owner: 230,
+  currentScore: 170,
+  status: 150,
+  dueDate: 145,
+  reviewDate: 155,
+  actions: 56
+}
+
+type TableSortOrder = 'ascend' | 'descend'
+type RiskColumnKey = keyof typeof riskColumnDefaults
+type RiskSortField = Exclude<RiskColumnKey, 'actions'>
+
+interface RisksTableState {
+  search: string
+  status?: RiskStatus
+  category?: string
+  criticalOnly: boolean
+  page: number
+  pageSize: number
+  sortField?: RiskSortField
+  sortOrder?: TableSortOrder
+  columnWidths: Partial<Record<RiskColumnKey, number>>
+}
+
+const initialRisksTableState: RisksTableState = {
+  search: '',
+  criticalOnly: false,
+  page: 1,
+  pageSize: 10,
+  sortField: 'currentScore',
+  sortOrder: 'descend',
+  columnWidths: riskColumnDefaults
 }
 
 /** Ordnet einem numerischen Risikowert die gemeinsame visuelle Priorität zu. */
@@ -63,20 +111,57 @@ function formatDate (date: string | null): string {
   }).format(new Date(`${date}T00:00:00`))
 }
 
+/** Kürzt lange Beschreibungen für die kompakte Tabellenzeile. */
+function summarizeDescription (description: string): string {
+  return description.length > 96 ? `${description.slice(0, 93)}...` : description
+}
+
+function getSingleFilterValue<T extends string> (value: unknown): T | undefined {
+  return Array.isArray(value) && typeof value[0] === 'string' ? value[0] as T : undefined
+}
+
 /** Rendert die filter- und sortierbare Gesamtübersicht der vom Server geladenen Risiken. */
 export function RisksOverview ({
   risks,
   loading,
   error,
+  preset,
   onReload,
   onCreate,
   onUpdate,
   onDelete
 }: RisksOverviewProps): React.JSX.Element {
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<RiskStatus | undefined>()
-  const [category, setCategory] = useState<string | undefined>()
+  const [tableState, setTableState] = usePersistentState(riskTableStorageKey, initialRisksTableState)
   const [selectedRiskId, setSelectedRiskId] = useState<string | null>(null)
+  const columnWidths = useMemo(
+    () => ({ ...riskColumnDefaults, ...tableState.columnWidths }),
+    [tableState.columnWidths]
+  )
+  const updateTableState = useCallback((patch: Partial<RisksTableState>): void => {
+    setTableState((current) => ({ ...current, ...patch }))
+  }, [setTableState])
+  const setColumnWidth = useCallback((column: RiskColumnKey, width: number): void => {
+    setTableState((current) => ({
+      ...current,
+      columnWidths: { ...current.columnWidths, [column]: width }
+    }))
+  }, [setTableState])
+  const startColumnResize = useColumnResize(columnWidths, setColumnWidth)
+  const renderColumnTitle = useCallback((column: RiskColumnKey, label: string): React.JSX.Element => (
+    <ResizableColumnTitle label={label} onResizeStart={(event) => startColumnResize(column, event)} />
+  ), [startColumnResize])
+
+  useEffect(() => {
+    if (!preset) return
+    setTableState((current) => ({
+      ...current,
+      search: '',
+      status: preset.status,
+      category: undefined,
+      criticalOnly: Boolean(preset.criticalOnly),
+      page: 1
+    }))
+  }, [preset, setTableState])
 
   const categories = useMemo(() => [...new Set(risks.map((risk) => risk.category))].sort(), [risks])
   const selectedRisk = useMemo(
@@ -84,37 +169,93 @@ export function RisksOverview ({
     [risks, selectedRiskId]
   )
   const filteredRisks = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase('de')
+    const term = tableState.search.trim().toLocaleLowerCase('de')
     return risks.filter((risk) => {
-      const matchesSearch = !term || [risk.reference, risk.title, risk.owner, risk.category]
+      const matchesSearch = !term || [risk.reference, risk.title, risk.description, risk.owner, risk.category]
         .some((value) => value.toLocaleLowerCase('de').includes(term))
-      return matchesSearch && (!status || risk.status === status) && (!category || risk.category === category)
+      const matchesCritical = !tableState.criticalOnly || risk.currentScore >= 16
+      return matchesSearch &&
+        matchesCritical &&
+        (!tableState.status || risk.status === tableState.status) &&
+        (!tableState.category || risk.category === tableState.category)
     })
-  }, [category, risks, search, status])
+  }, [risks, tableState.category, tableState.criticalOnly, tableState.search, tableState.status])
+
+  useEffect(() => {
+    const lastPage = Math.max(1, Math.ceil(filteredRisks.length / tableState.pageSize))
+    if (tableState.page > lastPage) updateTableState({ page: lastPage })
+  }, [filteredRisks.length, tableState.page, tableState.pageSize, updateTableState])
+
+  const resetFilters = (): void => {
+    updateTableState({
+      search: '',
+      status: undefined,
+      category: undefined,
+      criticalOnly: false,
+      page: 1
+    })
+  }
+
+  const handleTableChange: TableProps<Risk>['onChange'] = (pagination, filters, sorter) => {
+    const activeSorter = Array.isArray(sorter) ? sorter[0] : sorter
+    const sortOrder = activeSorter?.order === 'ascend' || activeSorter?.order === 'descend'
+      ? activeSorter.order
+      : undefined
+    const sortField = sortOrder && typeof activeSorter?.field === 'string'
+      ? activeSorter.field as RiskSortField
+      : undefined
+    const filteredStatus = getSingleFilterValue<RiskStatus>(filters.status)
+
+    updateTableState({
+      page: pagination.current ?? tableState.page,
+      pageSize: pagination.pageSize ?? tableState.pageSize,
+      status: filteredStatus,
+      sortField,
+      sortOrder
+    })
+  }
+
+  const hasActiveFilters = tableState.search.trim().length > 0 ||
+    Boolean(tableState.status) ||
+    Boolean(tableState.category) ||
+    tableState.criticalOnly
+  const pagination: TablePaginationConfig = {
+    current: tableState.page,
+    pageSize: tableState.pageSize,
+    showSizeChanger: false
+  }
 
   const columns: TableProps<Risk>['columns'] = [
     {
-      title: 'REFERENZ',
+      title: renderColumnTitle('reference', 'REFERENZ'),
       dataIndex: 'reference',
-      width: 100,
+      key: 'reference',
+      width: columnWidths.reference,
       sorter: (left, right) => left.reference.localeCompare(right.reference),
+      sortOrder: tableState.sortField === 'reference' ? tableState.sortOrder : null,
       render: (reference: string) => <Text code>{reference}</Text>
     },
     {
-      title: 'RISIKO',
+      title: renderColumnTitle('title', 'RISIKO'),
       dataIndex: 'title',
-      width: '29%',
+      key: 'title',
+      width: columnWidths.title,
       sorter: (left, right) => left.title.localeCompare(right.title, 'de'),
+      sortOrder: tableState.sortField === 'title' ? tableState.sortOrder : null,
       render: (title: string, risk) => (
         <div>
           <Text strong>{title}</Text>
-          <div><Text type="secondary" className="subline">{risk.category}</Text></div>
+          <div><Text type="secondary" className="subline">{risk.category} · {summarizeDescription(risk.description)}</Text></div>
         </div>
       )
     },
     {
-      title: 'VERANTWORTLICH',
+      title: renderColumnTitle('owner', 'VERANTWORTLICH'),
       dataIndex: 'owner',
+      key: 'owner',
+      width: columnWidths.owner,
+      sorter: (left, right) => left.owner.localeCompare(right.owner, 'de'),
+      sortOrder: tableState.sortField === 'owner' ? tableState.sortOrder : null,
       render: (owner: string) => (
         <Space size={8}>
           <Avatar size={28} icon={<UserOutlined />} className="owner-avatar" />
@@ -123,11 +264,12 @@ export function RisksOverview ({
       )
     },
     {
-      title: 'RISIKOWERT',
+      title: renderColumnTitle('currentScore', 'RISIKOWERT'),
       dataIndex: 'currentScore',
-      width: 155,
+      key: 'currentScore',
+      width: columnWidths.currentScore,
       sorter: (left, right) => left.currentScore - right.currentScore,
-      defaultSortOrder: 'descend',
+      sortOrder: tableState.sortField === 'currentScore' ? tableState.sortOrder : null,
       render: (score: number) => {
         const meta = getRiskMeta(score)
         return (
@@ -142,17 +284,55 @@ export function RisksOverview ({
       }
     },
     {
-      title: 'STATUS',
+      title: renderColumnTitle('status', 'STATUS'),
       dataIndex: 'status',
+      key: 'status',
+      width: columnWidths.status,
       filters: Object.keys(statusColors).map((value) => ({ text: value, value })),
+      filteredValue: tableState.status ? [tableState.status] : null,
       onFilter: (value, risk) => risk.status === value,
+      sorter: (left, right) => left.status.localeCompare(right.status, 'de'),
+      sortOrder: tableState.sortField === 'status' ? tableState.sortOrder : null,
       render: (value: RiskStatus) => <Tag color={statusColors[value]}>{value}</Tag>
     },
     {
-      title: 'FÄLLIG',
+      title: renderColumnTitle('dueDate', 'FÄLLIG'),
       dataIndex: 'dueDate',
-      width: 130,
+      key: 'dueDate',
+      width: columnWidths.dueDate,
+      sorter: (left, right) => (left.dueDate ?? '').localeCompare(right.dueDate ?? ''),
+      sortOrder: tableState.sortField === 'dueDate' ? tableState.sortOrder : null,
       render: (value: string | null) => <Text type="secondary">{formatDate(value)}</Text>
+    },
+    {
+      title: renderColumnTitle('reviewDate', 'REVIEW'),
+      dataIndex: 'reviewDate',
+      key: 'reviewDate',
+      width: columnWidths.reviewDate,
+      sorter: (left, right) => (left.reviewDate ?? '').localeCompare(right.reviewDate ?? ''),
+      sortOrder: tableState.sortField === 'reviewDate' ? tableState.sortOrder : null,
+      render: (value: string | null, risk) => (
+        <div>
+          <Text type="secondary">{formatDate(value)}</Text>
+          <div><Text type="secondary" className="subline">{risk.reviewCycle}</Text></div>
+        </div>
+      )
+    },
+    {
+      key: 'actions',
+      width: columnWidths.actions,
+      render: (_, risk) => (
+        <Button
+          type="text"
+          shape="circle"
+          icon={<MoreOutlined />}
+          aria-label="Weitere Aktionen"
+          onClick={(event) => {
+            event.stopPropagation()
+            setSelectedRiskId(risk.id)
+          }}
+        />
+      )
     }
   ]
 
@@ -171,27 +351,21 @@ export function RisksOverview ({
       </Flex>
 
       {error && (
-        <Alert
-          type="error"
-          showIcon
-          message="Risiken konnten nicht geladen werden"
-          description={error}
-          action={<Button size="small" onClick={onReload}>Erneut versuchen</Button>}
-        />
+        <AppErrorState title="Risiken konnten nicht geladen werden" description={error} onRetry={onReload} />
       )}
 
       <div className="overview-summary-grid">
         <Card bordered={false}>
-          <Statistic title="Risiken gesamt" value={risks.length} loading={loading} prefix={<AlertOutlined />} />
+          <LoadingStatistic title="Risiken gesamt" value={risks.length} loading={loading} prefix={<AlertOutlined />} />
         </Card>
         <Card bordered={false}>
-          <Statistic title="Kritisch" value={risks.filter((risk) => risk.currentScore >= 16).length} loading={loading} valueStyle={{ color: '#e5484d' }} />
+          <LoadingStatistic title="Kritisch" value={risks.filter((risk) => risk.currentScore >= 16).length} loading={loading} valueStyle={{ color: '#e5484d' }} />
         </Card>
         <Card bordered={false}>
-          <Statistic title="In Bearbeitung" value={risks.filter((risk) => risk.status === 'In Bearbeitung').length} loading={loading} valueStyle={{ color: '#3980d8' }} />
+          <LoadingStatistic title="In Bearbeitung" value={risks.filter((risk) => risk.status === 'In Bearbeitung').length} loading={loading} valueStyle={{ color: '#3980d8' }} />
         </Card>
         <Card bordered={false}>
-          <Statistic title="Geschlossen" value={risks.filter((risk) => risk.status === 'Geschlossen').length} loading={loading} valueStyle={{ color: '#269261' }} />
+          <LoadingStatistic title="Geschlossen" value={risks.filter((risk) => risk.status === 'Geschlossen').length} loading={loading} valueStyle={{ color: '#269261' }} />
         </Card>
       </div>
 
@@ -201,45 +375,69 @@ export function RisksOverview ({
             allowClear
             prefix={<SearchOutlined />}
             placeholder="Referenz, Risiko oder Verantwortliche suchen"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            value={tableState.search}
+            onChange={(event) => updateTableState({ search: event.target.value, page: 1 })}
             className="overview-search"
           />
           <Space wrap>
+            {tableState.criticalOnly && (
+              <Tag
+                color="error"
+                closable
+                onClose={(event) => {
+                  event.preventDefault()
+                  updateTableState({ criticalOnly: false, page: 1 })
+                }}
+              >
+                Kritisch
+              </Tag>
+            )}
             <Select<RiskStatus>
               allowClear
               placeholder="Status"
-              value={status}
-              onChange={setStatus}
+              value={tableState.status}
+              onChange={(value) => updateTableState({ status: value, page: 1 })}
               options={Object.keys(statusColors).map((value) => ({ value: value as RiskStatus, label: value }))}
               className="overview-filter"
             />
             <Select<string>
               allowClear
               placeholder="Kategorie"
-              value={category}
-              onChange={setCategory}
+              value={tableState.category}
+              onChange={(value) => updateTableState({ category: value, page: 1 })}
               options={categories.map((value) => ({ value, label: value }))}
               className="overview-filter"
             />
+            {hasActiveFilters && (
+              <Button onClick={resetFilters}>Zurücksetzen</Button>
+            )}
           </Space>
         </Flex>
 
-        <Table<Risk>
-          rowKey="id"
-          columns={columns}
-          dataSource={filteredRisks}
-          loading={loading}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          scroll={{ x: 1000 }}
-          locale={{ emptyText: error ? 'Keine Daten verfügbar' : 'Keine Risiken entsprechen den Filtern' }}
-          onRow={(risk) => ({
-            onClick: () => setSelectedRiskId(risk.id),
-            className: 'clickable-risk-row'
-          })}
-        />
+        {loading && risks.length === 0 ? (
+          <TableSkeleton />
+        ) : (
+          <Table<Risk>
+            rowKey="id"
+            columns={columns}
+            dataSource={filteredRisks}
+            loading={loading}
+            pagination={pagination}
+            scroll={{ x: sumColumnWidths(columnWidths) }}
+            locale={{
+              emptyText: error
+                ? <AppEmptyState title="Keine Daten verfügbar" description="Prüfe die Verbindung und lade die Ansicht erneut." />
+                : <AppEmptyState title="Keine Risiken gefunden" description={hasActiveFilters ? 'Keine Risiken entsprechen den aktuellen Filtern.' : 'Erfasse das erste Risiko, um die Übersicht zu füllen.'} />
+            }}
+            onChange={handleTableChange}
+            onRow={(risk) => ({
+              onClick: () => setSelectedRiskId(risk.id),
+              className: 'clickable-risk-row'
+            })}
+          />
+        )}
         <Text type="secondary" className="overview-result-count">
-          {filteredRisks.length} von {risks.length} Risiken
+          <LoadingText loading={loading}>{filteredRisks.length} von {risks.length} Risiken</LoadingText>
         </Text>
       </Card>
 
