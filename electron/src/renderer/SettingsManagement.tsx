@@ -57,6 +57,10 @@ export function SettingsManagement ({ onAuthExpired, onDirtyChange }: SettingsMa
       await triggerBackupDownload()
       void message.success('Backup wurde erfolgreich erstellt und heruntergeladen.')
     } catch (err) {
+      if (isAuthenticationRequiredError(err)) {
+        onAuthExpired?.()
+        return
+      }
       void message.error(err instanceof Error ? err.message : 'Backup fehlgeschlagen.')
     } finally {
       setBackupLoading(false)
@@ -75,6 +79,10 @@ export function SettingsManagement ({ onAuthExpired, onDirtyChange }: SettingsMa
         void message.error(`Restore-Test fehlgeschlagen: ${result.message}`)
       }
     } catch (err) {
+      if (isAuthenticationRequiredError(err)) {
+        onAuthExpired?.()
+        return
+      }
       void message.error(err instanceof Error ? err.message : 'Restore-Test fehlgeschlagen.')
     } finally {
       setRestoreLoading(false)
@@ -93,6 +101,10 @@ export function SettingsManagement ({ onAuthExpired, onDirtyChange }: SettingsMa
         void message.error(`Restore-Test der hochgeladenen Datei fehlgeschlagen: ${result.message}`)
       }
     } catch (err) {
+      if (isAuthenticationRequiredError(err)) {
+        onAuthExpired?.()
+        return
+      }
       void message.error(err instanceof Error ? err.message : 'Restore-Test fehlgeschlagen.')
     } finally {
       setRestoreLoading(false)
