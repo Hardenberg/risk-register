@@ -115,6 +115,13 @@ Die Vite-Warnung zum großen Electron-Renderer-Chunk besteht weiterhin.
   Tastaturbedienung, Fokusführung, Screenreader-Texte, Kontraste und Tabellenbeschriftungen prüfen.
   Akzeptanz: Risiko- und Maßnahmenworkflow ist ohne Maus bedienbar.
 
+- [ ] **Fehlertoleranz und Robustheit gegen Betriebssystemfehler erhöhen.**
+  Mögliche Laufzeitfehler im File-System und Concurrent-Access-Szenarien abfangen:
+  - **SQLite-Sperren (Busy Timeout):** Bei parallelen Schreibzugriffen soll ein automatischer Retry/Timeout (z. B. `PRAGMA busy_timeout = 5000;`) konfiguriert werden, um Abstürze bei hoher Last zu verhindern.
+  - **Speicherplatzmangel bei Backups:** Vor dem Schreiben von Backup-Dateien den freien Speicherplatz auf der Festplatte ermitteln, um Abstürze des Node.js Prozesses zu vermeiden. Bei Fehlern soll ein präziser 507-Fehler anstelle eines unkontrollierten Crashes geliefert werden.
+  - **Integrität beim Löschen von Risiken:** Verknüpfungen von Soft-Deleted-Risiken mit aktiven Maßnahmen validieren. Wenn ein Risiko logisch gelöscht wird, müssen betroffene Maßnahmen archiviert oder gewarnt werden, um "verwaiste" Maßnahmen zu vermeiden.
+  - **Auto-Detection für Importe:** Importierte CSV-Dateien tolerant gegenüber abweichenden Trennzeichen (Semikolon vs. Komma) und Encodings (UTF-8 vs. ISO-8859-1) parsen.
+
 ## P2 - Automatisierung Und Skalierung
 
 - [ ] **OpenAPI als Quelle für Client-Typen nutzen.**
