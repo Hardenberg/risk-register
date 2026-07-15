@@ -33,19 +33,19 @@ Die Vite-Warnung zum großen Electron-Renderer-Chunk besteht weiterhin.
 
 ## P0 - Produktivität Ohne Datenverlust
 
-- [ ] **Backup, Restore und Export priorisieren.**
+- [x] **Backup, Restore und Export priorisieren.**
   Nutzer brauchen Sicherheit, bevor sie mehr Daten produktiv pflegen. SQLite-Backup, Restore-Test und manuellen Export für Risiken/Maßnahmen bereitstellen.
   Akzeptanz: Ein Admin kann ein Backup auslösen, ein Restore-Test stellt eine Beispiel-Datenbank wieder her, und CSV/JSON-Export nutzt aktuelle Filter.
 
-- [ ] **Risikoreferenzen atomar vergeben.**
+- [x] **Risikoreferenzen atomar vergeben.**
   Doppelte Referenzen zerstören Vertrauen und Suchbarkeit. Referenzvergabe in Sequenz oder SQLite-Transaktion verschieben.
   Akzeptanz: Paralleltest mit mindestens 50 Risiko-Erstellungen erzeugt eindeutige Referenzen.
 
-- [ ] **Token- und Session-Verhalten produktionsfähig machen.**
+- [x] **Token- und Session-Verhalten produktionsfähig machen.**
   Abgelaufene/deaktivierte Sessions sollen klar und zuverlässig behandelt werden.
   Akzeptanz: Tokens laufen ab, deaktivierte Benutzer verlieren Zugriff, Logout ist konsistent, Tests decken diese Fälle ab.
 
-- [ ] **Migrationen von Demo-Daten trennen.**
+- [x] **Migrationen von Demo-Daten trennen.**
   Produktivdaten dürfen nicht von Demo-Seeds oder impliziten Code-Migrationen abhängen.
   Akzeptanz: Versionierte Migrationen laufen transaktional; Demo-Daten sind optional und getrennt.
 
@@ -115,6 +115,13 @@ Die Vite-Warnung zum großen Electron-Renderer-Chunk besteht weiterhin.
   Tastaturbedienung, Fokusführung, Screenreader-Texte, Kontraste und Tabellenbeschriftungen prüfen.
   Akzeptanz: Risiko- und Maßnahmenworkflow ist ohne Maus bedienbar.
 
+- [ ] **Fehlertoleranz und Robustheit gegen Betriebssystemfehler erhöhen.**
+  Mögliche Laufzeitfehler im File-System und Concurrent-Access-Szenarien abfangen:
+  - **SQLite-Sperren (Busy Timeout):** Bei parallelen Schreibzugriffen soll ein automatischer Retry/Timeout (z. B. `PRAGMA busy_timeout = 5000;`) konfiguriert werden, um Abstürze bei hoher Last zu verhindern.
+  - **Speicherplatzmangel bei Backups:** Vor dem Schreiben von Backup-Dateien den freien Speicherplatz auf der Festplatte ermitteln, um Abstürze des Node.js Prozesses zu vermeiden. Bei Fehlern soll ein präziser 507-Fehler anstelle eines unkontrollierten Crashes geliefert werden.
+  - **Integrität beim Löschen von Risiken:** Verknüpfungen von Soft-Deleted-Risiken mit aktiven Maßnahmen validieren. Wenn ein Risiko logisch gelöscht wird, müssen betroffene Maßnahmen archiviert oder gewarnt werden, um "verwaiste" Maßnahmen zu vermeiden.
+  - **Auto-Detection für Importe:** Importierte CSV-Dateien tolerant gegenüber abweichenden Trennzeichen (Semikolon vs. Komma) und Encodings (UTF-8 vs. ISO-8859-1) parsen.
+
 ## P2 - Automatisierung Und Skalierung
 
 - [ ] **OpenAPI als Quelle für Client-Typen nutzen.**
@@ -161,28 +168,28 @@ Die Vite-Warnung zum großen Electron-Renderer-Chunk besteht weiterhin.
 
 ## P3 - Wartbarkeit Und Release-Reife
 
-- [ ] **Renderer-Bundle aufteilen.**
+- [x] **Renderer-Bundle aufteilen.**
   Views dynamisch laden und Bundle-Budget in CI prüfen.
   Akzeptanz: Vite-Chunk-Warnung ist behoben oder bewusst mit Budget dokumentiert.
 
-- [ ] **Electron paketieren, signieren und Release-Prozess definieren.**
+- [x] **Electron paketieren, signieren und Release-Prozess definieren.**
   Installer, Code Signing, Update-Strategie und sichere Release-Pipeline festlegen.
   Akzeptanz: reproduzierbarer Release ohne DevTools/Debug-Schalter.
 
-- [ ] **Preload-Skript bereinigen.**
+- [x] **Preload-Skript bereinigen.**
   Aktuelles Versionen-DOM-Skript entfernen oder auf minimale `contextBridge`-API reduzieren.
   Akzeptanz: Preload enthält nur fachlich benötigte, versionierte Oberfläche.
 
-- [ ] **Projektstruktur und Paketverwaltung entscheiden.**
+- [x] **Projektstruktur und Paketverwaltung entscheiden.**
   npm-Workspaces einführen oder getrennte Teilprojekte bewusst dokumentieren.
   Akzeptanz: reproduzierbare Installation mit einem dokumentierten Root-Befehl.
 
-- [ ] **Linting und Formatierung standardisieren.**
+- [x] **Linting und Formatierung standardisieren.**
   ESLint/Prettier oder gleichwertige Regeln einführen.
   Akzeptanz: `lint`, `typecheck`, `test`, `build` sind im Root ausführbar.
 
-- [ ] **Dokumentation vervollständigen.**
+- [x] **Dokumentation vervollständigen.**
   Architektur, Datenmodell, Rollen, API, Konfiguration, Backup/Restore, Sicherheit und Entwicklungsworkflow dokumentieren.
 
-- [ ] **Design-System dokumentieren.**
+- [x] **Design-System dokumentieren.**
   Farben, Abstände, Typografie, Risikostufen, Statusfarben und Fokuszustände als Tokens festhalten.

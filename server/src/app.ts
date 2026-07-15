@@ -55,6 +55,13 @@ import { registerRiskSchemas } from './interfaces/http/riskSchemas.js'
 import { registerUserRoutes } from './interfaces/http/userRoutes.js'
 import { registerUserSchemas } from './interfaces/http/userSchemas.js'
 
+export class UserDeactivatedError extends Error {
+  constructor () {
+    super('Ihr Benutzerkonto wurde deaktiviert.')
+    this.name = 'UserDeactivatedError'
+  }
+}
+
 export interface BuildAppOptions extends FastifyServerOptions {
   databasePath?: string
 }
@@ -92,7 +99,7 @@ export function buildApp (options: BuildAppOptions = {}): FastifyInstance {
   async function requireAuthorizedUser (authorization: string | undefined, reply: FastifyReply) {
     const user = await resolveAuthorizedUser(authorization)
     if (!user) {
-      await reply.code(401).send({ code: 'AUTH_FAILED', message: 'Bitte erneut anmelden.' })
+      await reply.code(401).send({ code: 'AUTH_FAILED', message: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.' })
       return null
     }
 
@@ -104,9 +111,16 @@ export function buildApp (options: BuildAppOptions = {}): FastifyInstance {
     if (!userId) return null
 
     const user = await userRepository.findById(userId)
-    if (!user || !user.toPrimitives().active) return null
+    if (!user) return null
+    if (!user.toPrimitives().active) {
+      throw new UserDeactivatedError()
+    }
     return user
   }
+
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (request, payload, done) => {
+    done(null, payload)
+  })
 
   app.register(cors, {
     origin: (origin, callback) => {
@@ -242,11 +256,15 @@ export function buildApp (options: BuildAppOptions = {}): FastifyInstance {
     registerApplicationSettingsRoutes(api, {
       get: new GetApplicationSettings(settingsRepository),
       update: new UpdateApplicationSettings(settingsRepository),
-      authorizeAdmin
+      authorizeAdmin,
+      database
     })
   })
 
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof UserDeactivatedError) {
+      return reply.code(401).send({ code: 'USER_DEACTIVATED', message: error.message })
+    }
     if (error instanceof RiskNotFoundError) {
       return reply.code(404).send({ code: 'RISK_NOT_FOUND', message: error.message })
     }

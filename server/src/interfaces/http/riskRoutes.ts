@@ -38,6 +38,7 @@ interface RiskQuery {
   owner?: string
   sortBy?: RiskSortField
   sortDirection?: SortDirection
+  criticalOnly?: boolean | string
 }
 
 const riskSortFields: RiskSortField[] = ['reference', 'title', 'category', 'owner', 'currentScore', 'status', 'dueDate', 'reviewDate', 'createdAt', 'updatedAt']
@@ -77,8 +78,81 @@ const internalError = {
   description: 'Unerwarteter interner Serverfehler.'
 } as const
 
+function escapeCSVValue (val: any): string {
+  if (val === null || val === undefined) return ''
+  const str = String(val)
+  if (str.includes('"') || str.includes(',') || str.includes(';') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+function convertToCSV (items: Array<Record<string, any>>, headers: string[]): string {
+  const lines = [headers.join(';')]
+  for (const item of items) {
+    const row = headers.map((header) => escapeCSVValue(item[header]))
+    lines.push(row.join(';'))
+  }
+  return lines.join('\r\n')
+}
+
 /** Verbindet die HTTP-Endpunkte mit den injizierten, infrastrukturell unabhängigen Use Cases. */
 export function registerRiskRoutes (app: FastifyInstance, useCases: RiskUseCases): void {
+  app.get<{ Querystring: RiskQuery & { format?: 'json' | 'csv' } }>('/api/risks/export', {
+    preHandler: useCases.authorize,
+    schema: {
+      operationId: 'exportRisks',
+      tags: ['Risiken'],
+      security: [{ bearerAuth: [] }],
+      summary: 'Risiken exportieren',
+      description: 'Exportiert alle gefilterten Risiken im CSV- oder JSON-Format.',
+      querystring: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          search: { type: 'string', maxLength: 200 },
+          status: { type: 'string', enum: riskStatuses },
+          category: { type: 'string', maxLength: 200 },
+          owner: { type: 'string', maxLength: 200 },
+          sortBy: { type: 'string', enum: riskSortFields, default: 'currentScore' },
+          sortDirection: { type: 'string', enum: sortDirections, default: 'desc' },
+          format: { type: 'string', enum: ['json', 'csv'], default: 'json' },
+          criticalOnly: { type: 'boolean', description: 'Filtert nach kritischen Risiken.' }
+        }
+      },
+      response: {
+        401: authError,
+        500: internalError
+      }
+    }
+  }, async (request, reply) => {
+    const listQuery = normalizeRiskQuery({
+      ...request.query,
+      page: 1,
+      pageSize: 100000
+    }, true)
+    const paginated = await useCases.list.execute(listQuery)
+    const format = request.query.format ?? 'json'
+
+    if (format === 'csv') {
+      const headers = [
+        'id', 'reference', 'title', 'description', 'category', 'owner',
+        'initialScore', 'currentScore', 'status', 'dueDate', 'reviewDate',
+        'reviewCycle', 'createdAt', 'updatedAt'
+      ]
+      const csv = convertToCSV(paginated.items, headers)
+      return reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', 'attachment; filename="risks-export.csv"')
+        .send(csv)
+    }
+
+    return reply
+      .header('Content-Type', 'application/json; charset=utf-8')
+      .header('Content-Disposition', 'attachment; filename="risks-export.json"')
+      .send(JSON.stringify(paginated.items, null, 2))
+  })
+
   app.get<{ Querystring: RiskQuery }>('/api/risks', {
     preHandler: useCases.authorize,
     schema: {
@@ -103,7 +177,8 @@ export function registerRiskRoutes (app: FastifyInstance, useCases: RiskUseCases
           category: { type: 'string', maxLength: 200, description: 'Filtert nach exakt passender Kategorie.' },
           owner: { type: 'string', maxLength: 200, description: 'Filtert nach exakt passender verantwortlicher Person.' },
           sortBy: { type: 'string', enum: riskSortFields, default: 'currentScore', description: 'Sortierfeld.' },
-          sortDirection: { type: 'string', enum: sortDirections, default: 'desc', description: 'Sortierrichtung.' }
+          sortDirection: { type: 'string', enum: sortDirections, default: 'desc', description: 'Sortierrichtung.' },
+          criticalOnly: { type: 'boolean', description: 'Filtert nach kritischen Risiken.' }
         }
       },
       response: {
@@ -195,16 +270,17 @@ export function registerRiskRoutes (app: FastifyInstance, useCases: RiskUseCases
   })
 }
 
-function normalizeRiskQuery (query: RiskQuery): RiskListQuery {
+function normalizeRiskQuery (query: RiskQuery, isExport = false): RiskListQuery {
   return {
     page: clampInteger(query.page, 1, 1, Number.MAX_SAFE_INTEGER),
-    pageSize: clampInteger(query.pageSize, 50, 1, 500),
+    pageSize: clampInteger(query.pageSize, 50, 1, isExport ? 1000000 : 500),
     search: normalizeOptionalText(query.search),
     status: query.status,
     category: normalizeOptionalText(query.category),
     owner: normalizeOptionalText(query.owner),
     sortBy: query.sortBy ?? 'currentScore',
-    sortDirection: query.sortDirection ?? 'desc'
+    sortDirection: query.sortDirection ?? 'desc',
+    criticalOnly: query.criticalOnly === true || String(query.criticalOnly) === 'true'
   }
 }
 

@@ -29,6 +29,23 @@ export class SqliteRiskRepository implements RiskRepository {
   /** Bereitet häufig genutzte Statements für den SQLite-Adapter vor. */
   constructor (private readonly database: SqliteDatabase) {
     this.findByIdStatement = database.connection.prepare('SELECT * FROM risks WHERE id = ? AND deleted_at IS NULL')
+
+    // Initialize atomic sequence table and the sequence row for risk references
+    this.database.connection.exec(`
+      CREATE TABLE IF NOT EXISTS sequences (
+        name TEXT PRIMARY KEY,
+        value INTEGER NOT NULL
+      );
+    `)
+
+    const row = this.database.connection.prepare(`
+      SELECT COALESCE(MAX(CAST(SUBSTR(reference, 3) AS INTEGER)), 0) AS maximum
+      FROM risks
+    `).get() as { maximum: number }
+
+    this.database.connection.prepare(`
+      INSERT OR IGNORE INTO sequences (name, value) VALUES ('risk_reference', ?)
+    `).run(row.maximum)
   }
 
   /** Liest Risiken serverseitig gefiltert, sortiert und paginiert. */
@@ -61,13 +78,22 @@ export class SqliteRiskRepository implements RiskRepository {
     return row ? toEntity(row) : null
   }
 
-  /** Berechnet die nächste menschenlesbare Referenz aus dem aktuellen Maximalwert. */
+  /** Erhöht den Sequenzwert atomar und gibt die nächste eindeutige Referenz zurück. */
   async nextReference (): Promise<string> {
-    const row = this.database.connection.prepare(`
-      SELECT COALESCE(MAX(CAST(SUBSTR(reference, 3) AS INTEGER)), 0) AS maximum
-      FROM risks
-    `).get() as unknown as { maximum: number }
-    return `R-${String(row.maximum + 1).padStart(3, '0')}`
+    this.database.connection.exec('BEGIN IMMEDIATE;')
+    try {
+      this.database.connection.prepare(`
+        UPDATE sequences SET value = value + 1 WHERE name = 'risk_reference'
+      `).run()
+      const row = this.database.connection.prepare(`
+        SELECT value FROM sequences WHERE name = 'risk_reference'
+      `).get() as { value: number }
+      this.database.connection.exec('COMMIT;')
+      return `R-${String(row.value).padStart(3, '0')}`
+    } catch (err) {
+      this.database.connection.exec('ROLLBACK;')
+      throw err
+    }
   }
 
   /** Schreibt eine neue, bereits validierte Domain-Entität in SQLite. */
@@ -126,6 +152,9 @@ function buildRiskWhere (query: RiskListQuery): { whereClause: string, params: A
   if (normalizedSearch) {
     conditions.push('(reference LIKE ? OR title LIKE ? OR description LIKE ? OR category LIKE ? OR owner LIKE ?)')
     params.push(...Array<string>(5).fill(`%${normalizedSearch}%`))
+  }
+  if (query.criticalOnly) {
+    conditions.push('current_score >= 16')
   }
   if (query.status) {
     conditions.push('status = ?')

@@ -1,3 +1,5 @@
+process.env.NODE_ENV = 'test'
+
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -159,6 +161,16 @@ test('Benutzer können sich anmelden, angelegt, bearbeitet und deaktiviert werde
     true
   )
 
+  // Login as team.tester to get an active token
+  const testerLoginResponse = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { username: 'team.tester', password: 'passwort123' }
+  })
+  assert.equal(testerLoginResponse.statusCode, 200)
+  const testerToken = testerLoginResponse.json<{ token: string }>().token
+  const testerHeaders = { authorization: `Bearer ${testerToken}` }
+
   const deactivatedResponse = await app.inject({
     method: 'PUT',
     url: `/api/users/${created.id}`,
@@ -167,6 +179,15 @@ test('Benutzer können sich anmelden, angelegt, bearbeitet und deaktiviert werde
   })
   assert.equal(deactivatedResponse.statusCode, 200)
   assert.equal(deactivatedResponse.json<{ active: boolean }>().active, false)
+
+  // Verify that their active token is immediately rejected with USER_DEACTIVATED
+  const requestWithDeactivatedToken = await app.inject({
+    method: 'GET',
+    url: '/api/profile',
+    headers: testerHeaders
+  })
+  assert.equal(requestWithDeactivatedToken.statusCode, 401)
+  assert.equal(requestWithDeactivatedToken.json<{ code: string }>().code, 'USER_DEACTIVATED')
 
   const blockedLoginResponse = await app.inject({
     method: 'POST',
@@ -577,6 +598,154 @@ test('Ungültige Risikowerte werden abgewiesen', async () => {
 
   assert.equal(response.statusCode, 400)
   assert.equal(response.json<{ code: string }>().code, 'VALIDATION_ERROR')
+})
+
+test('Erzeugt parallel mindestens 50 Risiken mit eindeutigen Referenzen', async () => {
+  const headers = await getAdminAuthHeaders()
+  const count = 50
+  const promises = []
+
+  for (let i = 0; i < count; i++) {
+    promises.push(
+      app.inject({
+        method: 'POST',
+        url: '/api/risks',
+        headers,
+        payload: {
+          title: `Parallel-Risiko ${i}`,
+          description: `Beschreibung für das parallele Test-Risiko ${i}`,
+          category: 'Technologie',
+          owner: 'Parallel-User',
+          initialScore: 10,
+          reviewCycle: 'Monatlich'
+        }
+      })
+    )
+  }
+
+  const responses = await Promise.all(promises)
+  const references = new Set<string>()
+
+  for (const response of responses) {
+    assert.equal(response.statusCode, 201)
+    const body = response.json<{ reference: string }>()
+    assert.match(body.reference, /^R-\d{3}$/)
+    references.add(body.reference)
+  }
+
+  assert.equal(references.size, count)
+})
+
+test('Admin kann ein Backup erstellen und den Restore-Test durchführen', async () => {
+  const headers = await getAdminAuthHeaders()
+
+  // 1. Create Backup
+  const backupResponse = await app.inject({
+    method: 'POST',
+    url: '/api/settings/backup',
+    headers
+  })
+  assert.equal(backupResponse.statusCode, 200)
+  assert.equal(backupResponse.headers['content-type'], 'application/octet-stream')
+  assert.match(backupResponse.headers['content-disposition'] ?? '', /^attachment; filename="backup-/)
+
+  // 2. Restore-Test (with uploaded database file)
+  const restoreResponse = await app.inject({
+    method: 'POST',
+    url: '/api/settings/restore-test',
+    headers: {
+      ...headers,
+      'content-type': 'application/octet-stream'
+    },
+    payload: backupResponse.rawPayload
+  })
+  assert.equal(restoreResponse.statusCode, 200)
+  const restoreResult = restoreResponse.json<{ success: boolean, source: string }>()
+  assert.equal(restoreResult.success, true)
+  assert.equal(restoreResult.source, 'uploaded_file')
+
+  // 3. Restore-Test (without payload - tests the latest file on server or running db)
+  const restoreLatestResponse = await app.inject({
+    method: 'POST',
+    url: '/api/settings/restore-test',
+    headers
+  })
+  assert.equal(restoreLatestResponse.statusCode, 200)
+  const restoreLatestResult = restoreLatestResponse.json<{ success: boolean }>()
+  assert.equal(restoreLatestResult.success, true)
+})
+
+test('Benutzer kann gefilterte Risiken und Maßnahmen exportieren', async () => {
+  const headers = await getAdminAuthHeaders()
+
+  // 1. Export Risks (JSON) with criticalOnly
+  const risksJsonResponse = await app.inject({
+    method: 'GET',
+    url: '/api/risks/export?format=json&criticalOnly=true',
+    headers
+  })
+  assert.equal(risksJsonResponse.statusCode, 200)
+  assert.equal(risksJsonResponse.headers['content-type'], 'application/json; charset=utf-8')
+  const risksJson = risksJsonResponse.json<any[]>()
+  assert.ok(risksJson.length > 0)
+  for (const r of risksJson) {
+    assert.ok(r.currentScore >= 16)
+  }
+
+  // 2. Export Risks (CSV) with criticalOnly
+  const risksCsvResponse = await app.inject({
+    method: 'GET',
+    url: '/api/risks/export?format=csv&criticalOnly=true',
+    headers
+  })
+  assert.equal(risksCsvResponse.statusCode, 200)
+  assert.equal(risksCsvResponse.headers['content-type'], 'text/csv; charset=utf-8')
+  assert.match(risksCsvResponse.body, /^id;reference;title;/)
+
+  // 3. Export Measures (JSON) with status=Überfällig (We create an overdue measure first to guarantee test has one)
+  const riskResponse = await app.inject({ method: 'GET', url: '/api/risks', headers })
+  const [risk] = riskResponse.json<any>().items
+  const overdueDueDate = '2020-01-01'
+  const createOverdueMeasureResponse = await app.inject({
+    method: 'POST',
+    url: '/api/measures',
+    headers,
+    payload: {
+      riskId: risk.id,
+      title: 'Overdue Test Measure',
+      description: 'Must appear in overdue filter.',
+      owner: 'Test Owner',
+      dueDate: overdueDueDate,
+      priority: 'Hoch',
+      status: 'Offen'
+    }
+  })
+  assert.equal(createOverdueMeasureResponse.statusCode, 201)
+
+  const measuresJsonResponse = await app.inject({
+    method: 'GET',
+    url: '/api/measures/export?format=json&status=Überfällig',
+    headers
+  })
+  assert.equal(measuresJsonResponse.statusCode, 200)
+  assert.equal(measuresJsonResponse.headers['content-type'], 'application/json; charset=utf-8')
+  const measuresJson = measuresJsonResponse.json<any[]>()
+  assert.ok(measuresJson.length > 0)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  for (const m of measuresJson) {
+    assert.notEqual(m.status, 'Erledigt')
+    assert.ok(m.dueDate && m.dueDate < todayStr)
+  }
+
+  // 4. Export Measures (CSV)
+  const measuresCsvResponse = await app.inject({
+    method: 'GET',
+    url: '/api/measures/export?format=csv',
+    headers
+  })
+  assert.equal(measuresCsvResponse.statusCode, 200)
+  assert.equal(measuresCsvResponse.headers['content-type'], 'text/csv; charset=utf-8')
+  assert.match(measuresCsvResponse.body, /^id;riskId;title;/)
 })
 
 async function getAdminAuthHeaders (targetApp: ReturnType<typeof buildApp> = app): Promise<Record<string, string>> {

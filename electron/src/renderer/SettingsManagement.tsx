@@ -9,7 +9,8 @@ import {
   InputNumber,
   Select,
   Space,
-  Typography
+  Typography,
+  Upload
 } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -17,6 +18,9 @@ import { isAuthenticationRequiredError } from './api/auth'
 import {
   getApplicationSettings,
   updateApplicationSettings,
+  triggerBackupDownload,
+  runRestoreTest,
+  type RestoreTestResponse,
   type ApplicationSettings
 } from './api/settings'
 import { reviewCycleOptions } from './riskOptions'
@@ -40,9 +44,72 @@ export function SettingsManagement ({ onAuthExpired, onDirtyChange }: SettingsMa
   const [form] = Form.useForm<ApplicationSettings>()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [backupLoading, setBackupLoading] = useState(false)
+  const [restoreLoading, setRestoreLoading] = useState(false)
+  const [restoreResult, setRestoreResult] = useState<RestoreTestResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [settingsSnapshot, setSettingsSnapshot] = useState<FormSnapshot | null>(null)
   const [dirty, setDirty] = useState(false)
+
+  const handleBackup = async (): Promise<void> => {
+    setBackupLoading(true)
+    try {
+      await triggerBackupDownload()
+      void message.success('Backup wurde erfolgreich erstellt und heruntergeladen.')
+    } catch (err) {
+      if (isAuthenticationRequiredError(err)) {
+        onAuthExpired?.()
+        return
+      }
+      void message.error(err instanceof Error ? err.message : 'Backup fehlgeschlagen.')
+    } finally {
+      setBackupLoading(false)
+    }
+  }
+
+  const handleRestoreTestLatest = async (): Promise<void> => {
+    setRestoreLoading(true)
+    setRestoreResult(null)
+    try {
+      const result = await runRestoreTest()
+      setRestoreResult(result)
+      if (result.success) {
+        void message.success('Restore-Test erfolgreich: Die Datenbank-Struktur ist valide.')
+      } else {
+        void message.error(`Restore-Test fehlgeschlagen: ${result.message}`)
+      }
+    } catch (err) {
+      if (isAuthenticationRequiredError(err)) {
+        onAuthExpired?.()
+        return
+      }
+      void message.error(err instanceof Error ? err.message : 'Restore-Test fehlgeschlagen.')
+    } finally {
+      setRestoreLoading(false)
+    }
+  }
+
+  const handleRestoreTestUpload = async (file: File): Promise<void> => {
+    setRestoreLoading(true)
+    setRestoreResult(null)
+    try {
+      const result = await runRestoreTest(file)
+      setRestoreResult(result)
+      if (result.success) {
+        void message.success('Restore-Test der hochgeladenen Datei erfolgreich!')
+      } else {
+        void message.error(`Restore-Test der hochgeladenen Datei fehlgeschlagen: ${result.message}`)
+      }
+    } catch (err) {
+      if (isAuthenticationRequiredError(err)) {
+        onAuthExpired?.()
+        return
+      }
+      void message.error(err instanceof Error ? err.message : 'Restore-Test fehlgeschlagen.')
+    } finally {
+      setRestoreLoading(false)
+    }
+  }
 
   const updateDirtyState = useCallback((nextDirty: boolean): void => {
     setDirty(nextDirty)
@@ -173,6 +240,42 @@ export function SettingsManagement ({ onAuthExpired, onDirtyChange }: SettingsMa
             <InputNumber min={1} max={25} className="full-width" />
           </Form.Item>
         </Form>
+      </Card>
+
+      <Card bordered={false} className="settings-card" title="Daten-Backup & Restore-Test" style={{ marginTop: 24 }}>
+        <Text type="secondary">
+          Erstelle Backups der aktuellen SQLite-Datenbank oder führe einen kontrollierten Restore-Test durch, um die Integrität deiner Backups zu verifizieren.
+        </Text>
+        <div style={{ marginTop: 16 }}>
+          <Space size={16} wrap>
+            <Button type="primary" onClick={() => { void handleBackup() }} loading={backupLoading}>
+              Backup erstellen & herunterladen
+            </Button>
+            <Button onClick={() => { void handleRestoreTestLatest() }} loading={restoreLoading}>
+              Server-Backup validieren
+            </Button>
+            <Upload
+              accept=".db"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                void handleRestoreTestUpload(file)
+                return false
+              }}
+            >
+              <Button loading={restoreLoading}>Backup-Datei hochladen & validieren</Button>
+            </Upload>
+          </Space>
+        </div>
+        {restoreResult && (
+          <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: restoreResult.success ? '#f6ffed' : '#fff2f0', border: `1px solid ${restoreResult.success ? '#b7eb8f' : '#ffccc7'}` }}>
+            <Text strong style={{ color: restoreResult.success ? '#389e0d' : '#cf1322' }}>
+              {restoreResult.success ? '✓ Restore-Test erfolgreich' : '✗ Restore-Test fehlgeschlagen'}
+            </Text>
+            <div>
+              <Text type="secondary">{restoreResult.message} (Quelle: {restoreResult.source})</Text>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   )

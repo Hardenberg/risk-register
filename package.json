@@ -1,15 +1,27 @@
 {
   "name": "risk-register-workspace",
   "version": "1.0.0",
+  "type": "module",
   "description": "Development launcher for the Risk Register application",
   "scripts": {
     "dev": "concurrently --kill-others --names server,electron --prefix-colors blue,magenta \"npm:dev:server\" \"npm:dev:electron\"",
     "dev:server": "npm --prefix server run dev",
     "dev:electron": "npm --prefix electron run dev",
-    "start": "npm run dev"
+    "start": "npm run dev",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint ."
   },
   "private": true,
+  "workspaces": [
+    "server",
+    "electron"
+  ],
   "devDependencies": {
-    "concurrently": "^10.0.3"
+    "@typescript-eslint/eslint-plugin": "^8.24.1",
+    "@typescript-eslint/parser": "^8.24.1",
+    "concurrently": "^10.0.3",
+    "eslint": "^9.18.0"
   }
 }

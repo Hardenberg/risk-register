@@ -115,6 +115,11 @@ function buildMeasureWhere (query: MeasureListQuery): { whereClause: string, par
     conditions.push('status = ?')
     params.push(query.status)
   }
+  if (query.overdue) {
+    conditions.push('status != \'Erledigt\'')
+    conditions.push('due_date IS NOT NULL AND due_date < ?')
+    params.push(new Date().toISOString().slice(0, 10))
+  }
   if (query.priority) {
     conditions.push('priority = ?')
     params.push(query.priority)

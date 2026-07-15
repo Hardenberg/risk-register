@@ -13,6 +13,7 @@ export interface MeasureListQuery {
   riskId?: string
   sortBy: MeasureSortField
   sortDirection: SortDirection
+  overdue?: boolean
 }
 
 export interface MeasureRepository {

@@ -22,8 +22,10 @@ import {
   type TableProps
 } from 'antd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { App as AntdApp } from 'antd'
 
 import type { Risk, RiskStatus, UpdateRiskInput } from './api/risks'
+import { readAuthSession } from './api/auth'
 import { usePersistentState } from './persistentState'
 import { ResizableColumnTitle, sumColumnWidths, useColumnResize } from './resizableColumns'
 import { RiskDetailDrawer } from './RiskDetailDrawer'
@@ -131,7 +133,49 @@ export function RisksOverview ({
   onUpdate,
   onDelete
 }: RisksOverviewProps): React.JSX.Element {
+  const { message } = AntdApp.useApp()
   const [tableState, setTableState] = usePersistentState(riskTableStorageKey, initialRisksTableState)
+
+  const handleExport = (format: 'json' | 'csv'): void => {
+    const params = new URLSearchParams()
+    if (tableState.search) params.set('search', tableState.search)
+    if (tableState.status) params.set('status', tableState.status)
+    if (tableState.category) params.set('category', tableState.category)
+    if (tableState.criticalOnly) params.set('criticalOnly', 'true')
+    if (tableState.sortField) {
+      params.set('sortBy', tableState.sortField)
+    }
+    if (tableState.sortOrder) {
+      params.set('sortDirection', tableState.sortOrder === 'ascend' ? 'asc' : 'desc')
+    }
+    params.set('format', format)
+
+    const token = readAuthSession()?.token
+    const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api'
+    const url = `${apiBaseUrl}/risks/export?${params.toString()}`
+
+    fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Export fehlgeschlagen')
+        const blob = await response.blob()
+        const downloadUrl = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        a.download = `risks-export.${format}`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(downloadUrl)
+        void message.success(`${format.toUpperCase()}-Export erfolgreich heruntergeladen.`)
+      })
+      .catch((err) => {
+        void message.error('Export fehlgeschlagen: ' + String(err.message))
+      })
+  }
   const [selectedRiskId, setSelectedRiskId] = useState<string | null>(null)
   const columnWidths = useMemo(
     () => ({ ...riskColumnDefaults, ...tableState.columnWidths }),
@@ -346,6 +390,8 @@ export function RisksOverview ({
         </div>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={onReload} loading={loading}>Aktualisieren</Button>
+          <Button onClick={() => handleExport('csv')}>CSV Export</Button>
+          <Button onClick={() => handleExport('json')}>JSON Export</Button>
           <Button type="primary" size="large" icon={<PlusOutlined />} onClick={onCreate}>Risiko erfassen</Button>
         </Space>
       </Flex>

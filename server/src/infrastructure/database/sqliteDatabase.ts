@@ -7,9 +7,11 @@ import { hashPassword } from '../security/passwordHasher.js'
 
 export class SqliteDatabase {
   readonly connection: DatabaseSync
+  readonly databasePath: string
 
   /** Öffnet SQLite, setzt sicherheitsrelevante Pragmas und führt ausstehende Migrationen aus. */
   constructor (databasePath: string) {
+    this.databasePath = databasePath
     if (databasePath !== ':memory:') {
       mkdirSync(dirname(databasePath), { recursive: true })
     }
@@ -20,11 +22,37 @@ export class SqliteDatabase {
       this.connection.exec('PRAGMA journal_mode = WAL;')
     }
     this.migrate()
+
+    // Seed optional demo data if requested or in test mode (unless explicitly disabled)
+    if (process.env.SEED_DEMO_DATA === 'true' || (process.env.NODE_ENV === 'test' && process.env.SEED_DEMO_DATA !== 'false')) {
+      this.seedDemoData()
+    }
   }
 
   /** Schließt die native SQLite-Verbindung kontrolliert. */
   close (): void {
     this.connection.close()
+  }
+
+  /** Fügt Demodaten für Demonstrations- oder Testzwecke ein. */
+  seedDemoData (): void {
+    // Check if demo data already exists to avoid duplicate constraint errors
+    const checkRow = this.connection.prepare("SELECT count(*) as count FROM risks WHERE id = '01J00000000000000000000001'").get() as { count: number }
+    if (checkRow.count > 0) return
+
+    this.connection.exec(`
+      BEGIN;
+      INSERT OR IGNORE INTO risks (
+        id, reference, title, category, owner, initial_score, current_score,
+        status, due_date, created_at, updated_at, description, review_date, review_cycle
+      ) VALUES
+        ('01J00000000000000000000001', 'R-024', 'Lieferengpass bei Kernkomponenten', 'Lieferkette', 'Lena Vogt', 22, 18, 'In Bearbeitung', '2026-07-18', '2026-07-01T08:00:00.000Z', '2026-07-07T10:30:00.000Z', 'Risiko von Lieferverzögerungen bei kritischen Kernkomponenten mit möglicher Auswirkung auf Produktion und Kundenliefertermine.', '2026-07-18', 'Fix'),
+        ('01J00000000000000000000002', 'R-019', 'Ausfall der zentralen Datenplattform', 'Technologie', 'Noah Weber', 20, 12, 'Überwacht', '2026-07-24', '2026-06-20T09:00:00.000Z', '2026-07-05T14:00:00.000Z', 'Ausfallrisiko der zentralen Datenplattform mit Auswirkungen auf Reporting, Steuerung und operative Entscheidungen.', '2026-07-24', 'Fix'),
+        ('01J00000000000000000000003', 'R-017', 'Verzögerung der regulatorischen Freigabe', 'Compliance', 'Mia Brandt', 16, 9, 'In Bearbeitung', '2026-08-02', '2026-06-12T11:00:00.000Z', '2026-07-03T09:15:00.000Z', 'Mögliche Verzögerung regulatorischer Freigaben mit Einfluss auf geplante Markteinführung und Projektmeilensteine.', '2026-08-02', 'Fix'),
+        ('01J00000000000000000000004', 'R-011', 'Wissensverlust durch Personalwechsel', 'Organisation', 'Elias König', 12, 6, 'Offen', '2026-08-11', '2026-05-28T13:00:00.000Z', '2026-06-29T16:45:00.000Z', 'Schlüsselwissen ist auf wenige Personen verteilt und kann bei Personalwechseln verloren gehen.', '2026-08-11', 'Fix'),
+        ('01J00000000000000000000005', 'R-008', 'Budgetüberschreitung im Rollout', 'Finanzen', 'Sofia Kern', 15, 4, 'Geschlossen', '2026-06-30', '2026-05-05T07:30:00.000Z', '2026-06-30T12:00:00.000Z', 'Budgetabweichungen im Rollout können zusätzliche Freigaben und Priorisierungsentscheidungen erforderlich machen.', '2026-06-30', 'Fix');
+      COMMIT;
+    `)
   }
 
   readSetting (key: string): string | null {
@@ -55,13 +83,6 @@ export class SqliteDatabase {
         );
         CREATE INDEX idx_risks_current_score ON risks (current_score DESC);
 
-        INSERT INTO risks VALUES
-          ('01J00000000000000000000001', 'R-024', 'Lieferengpass bei Kernkomponenten', 'Lieferkette', 'Lena Vogt', 22, 18, 'In Bearbeitung', '2026-07-18', '2026-07-01T08:00:00.000Z', '2026-07-07T10:30:00.000Z'),
-          ('01J00000000000000000000002', 'R-019', 'Ausfall der zentralen Datenplattform', 'Technologie', 'Noah Weber', 20, 12, 'Überwacht', '2026-07-24', '2026-06-20T09:00:00.000Z', '2026-07-05T14:00:00.000Z'),
-          ('01J00000000000000000000003', 'R-017', 'Verzögerung der regulatorischen Freigabe', 'Compliance', 'Mia Brandt', 16, 9, 'In Bearbeitung', '2026-08-02', '2026-06-12T11:00:00.000Z', '2026-07-03T09:15:00.000Z'),
-          ('01J00000000000000000000004', 'R-011', 'Wissensverlust durch Personalwechsel', 'Organisation', 'Elias König', 12, 6, 'Offen', '2026-08-11', '2026-05-28T13:00:00.000Z', '2026-06-29T16:45:00.000Z'),
-          ('01J00000000000000000000005', 'R-008', 'Budgetüberschreitung im Rollout', 'Finanzen', 'Sofia Kern', 15, 4, 'Geschlossen', '2026-06-30', '2026-05-05T07:30:00.000Z', '2026-06-30T12:00:00.000Z');
-
         PRAGMA user_version = 1;
         COMMIT;
       `)
@@ -82,16 +103,6 @@ export class SqliteDatabase {
         BEGIN;
         ALTER TABLE risks ADD COLUMN description TEXT NOT NULL DEFAULT 'Keine Beschreibung hinterlegt.';
         ALTER TABLE risks ADD COLUMN review_date TEXT DEFAULT '2026-08-31';
-        UPDATE risks SET
-          description = CASE reference
-            WHEN 'R-024' THEN 'Risiko von Lieferverzögerungen bei kritischen Kernkomponenten mit möglicher Auswirkung auf Produktion und Kundenliefertermine.'
-            WHEN 'R-019' THEN 'Ausfallrisiko der zentralen Datenplattform mit Auswirkungen auf Reporting, Steuerung und operative Entscheidungen.'
-            WHEN 'R-017' THEN 'Mögliche Verzögerung regulatorischer Freigaben mit Einfluss auf geplante Markteinführung und Projektmeilensteine.'
-            WHEN 'R-011' THEN 'Schlüsselwissen ist auf wenige Personen verteilt und kann bei Personalwechseln verloren gehen.'
-            WHEN 'R-008' THEN 'Budgetabweichungen im Rollout können zusätzliche Freigaben und Priorisierungsentscheidungen erforderlich machen.'
-            ELSE description
-          END,
-          review_date = COALESCE(due_date, review_date);
         CREATE INDEX idx_risks_review_date ON risks (review_date);
         PRAGMA user_version = 3;
         COMMIT;

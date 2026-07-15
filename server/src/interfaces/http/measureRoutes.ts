@@ -33,7 +33,7 @@ interface MeasureQuery {
   page?: number
   pageSize?: number
   search?: string
-  status?: MeasureStatus
+  status?: MeasureStatus | 'Überfällig'
   priority?: MeasurePriority
   owner?: string
   riskId?: string
@@ -77,7 +77,79 @@ const internalError = {
   description: 'Unerwarteter interner Serverfehler.'
 } as const
 
+function escapeCSVValue (val: any): string {
+  if (val === null || val === undefined) return ''
+  const str = String(val)
+  if (str.includes('"') || str.includes(',') || str.includes(';') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+function convertToCSV (items: Array<Record<string, any>>, headers: string[]): string {
+  const lines = [headers.join(';')]
+  for (const item of items) {
+    const row = headers.map((header) => escapeCSVValue(item[header]))
+    lines.push(row.join(';'))
+  }
+  return lines.join('\r\n')
+}
+
 export function registerMeasureRoutes (app: FastifyInstance, useCases: MeasureUseCases): void {
+  app.get<{ Querystring: MeasureQuery & { format?: 'json' | 'csv' } }>('/api/measures/export', {
+    preHandler: useCases.authorize,
+    schema: {
+      operationId: 'exportMeasures',
+      tags: ['Maßnahmen'],
+      security: [{ bearerAuth: [] }],
+      summary: 'Maßnahmen exportieren',
+      description: 'Exportiert alle gefilterten Maßnahmen im CSV- oder JSON-Format.',
+      querystring: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          search: { type: 'string', maxLength: 200 },
+          status: { type: 'string', enum: [...measureStatuses, 'Überfällig'] },
+          priority: { type: 'string', enum: measurePriorities },
+          owner: { type: 'string', maxLength: 200 },
+          riskId: { type: 'string', minLength: 1 },
+          sortBy: { type: 'string', enum: measureSortFields, default: 'dueDate' },
+          sortDirection: { type: 'string', enum: sortDirections, default: 'asc' },
+          format: { type: 'string', enum: ['json', 'csv'], default: 'json' }
+        }
+      },
+      response: {
+        401: authError,
+        500: internalError
+      }
+    }
+  }, async (request, reply) => {
+    const listQuery = normalizeMeasureQuery({
+      ...request.query,
+      page: 1,
+      pageSize: 100000
+    }, true)
+    const paginated = await useCases.list.execute(listQuery)
+    const format = request.query.format ?? 'json'
+
+    if (format === 'csv') {
+      const headers = [
+        'id', 'riskId', 'title', 'description', 'owner', 'dueDate',
+        'priority', 'status', 'createdAt', 'updatedAt'
+      ]
+      const csv = convertToCSV(paginated.items, headers)
+      return reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', 'attachment; filename="measures-export.csv"')
+        .send(csv)
+    }
+
+    return reply
+      .header('Content-Type', 'application/json; charset=utf-8')
+      .header('Content-Disposition', 'attachment; filename="measures-export.json"')
+      .send(JSON.stringify(paginated.items, null, 2))
+  })
+
   app.get<{ Querystring: MeasureQuery }>('/api/measures', {
     preHandler: useCases.authorize,
     schema: {
@@ -97,7 +169,7 @@ export function registerMeasureRoutes (app: FastifyInstance, useCases: MeasureUs
             maxLength: 200,
             description: 'Freitextsuche in Titel, Beschreibung und Verantwortlichem.'
           },
-          status: { type: 'string', enum: measureStatuses, description: 'Filtert nach Bearbeitungsstatus.' },
+          status: { type: 'string', enum: [...measureStatuses, 'Überfällig'], description: 'Filtert nach Bearbeitungsstatus.' },
           priority: { type: 'string', enum: measurePriorities, description: 'Filtert nach Priorität.' },
           owner: { type: 'string', maxLength: 200, description: 'Filtert nach exakt passender verantwortlicher Person.' },
           riskId: { type: 'string', minLength: 1, description: 'Filtert nach verknüpftem Risiko.' },
@@ -194,17 +266,18 @@ export function registerMeasureRoutes (app: FastifyInstance, useCases: MeasureUs
   })
 }
 
-function normalizeMeasureQuery (query: MeasureQuery): MeasureListQuery {
+function normalizeMeasureQuery (query: MeasureQuery, isExport = false): MeasureListQuery {
   return {
     page: clampInteger(query.page, 1, 1, Number.MAX_SAFE_INTEGER),
-    pageSize: clampInteger(query.pageSize, 50, 1, 500),
+    pageSize: clampInteger(query.pageSize, 50, 1, isExport ? 1000000 : 500),
     search: normalizeOptionalText(query.search),
-    status: query.status,
+    status: query.status === 'Überfällig' ? undefined : (query.status as any),
     priority: query.priority,
     owner: normalizeOptionalText(query.owner),
     riskId: normalizeOptionalText(query.riskId),
     sortBy: query.sortBy ?? 'dueDate',
-    sortDirection: query.sortDirection ?? 'asc'
+    sortDirection: query.sortDirection ?? 'asc',
+    overdue: query.status === 'Überfällig'
   }
 }
 
