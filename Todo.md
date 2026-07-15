@@ -33,19 +33,19 @@ Die Vite-Warnung zum großen Electron-Renderer-Chunk besteht weiterhin.
 
 ## P0 - Produktivität Ohne Datenverlust
 
-- [ ] **Backup, Restore und Export priorisieren.**
+- [x] **Backup, Restore und Export priorisieren.**
   Nutzer brauchen Sicherheit, bevor sie mehr Daten produktiv pflegen. SQLite-Backup, Restore-Test und manuellen Export für Risiken/Maßnahmen bereitstellen.
   Akzeptanz: Ein Admin kann ein Backup auslösen, ein Restore-Test stellt eine Beispiel-Datenbank wieder her, und CSV/JSON-Export nutzt aktuelle Filter.
 
-- [ ] **Risikoreferenzen atomar vergeben.**
+- [x] **Risikoreferenzen atomar vergeben.**
   Doppelte Referenzen zerstören Vertrauen und Suchbarkeit. Referenzvergabe in Sequenz oder SQLite-Transaktion verschieben.
   Akzeptanz: Paralleltest mit mindestens 50 Risiko-Erstellungen erzeugt eindeutige Referenzen.
 
-- [ ] **Token- und Session-Verhalten produktionsfähig machen.**
+- [x] **Token- und Session-Verhalten produktionsfähig machen.**
   Abgelaufene/deaktivierte Sessions sollen klar und zuverlässig behandelt werden.
   Akzeptanz: Tokens laufen ab, deaktivierte Benutzer verlieren Zugriff, Logout ist konsistent, Tests decken diese Fälle ab.
 
-- [ ] **Migrationen von Demo-Daten trennen.**
+- [x] **Migrationen von Demo-Daten trennen.**
   Produktivdaten dürfen nicht von Demo-Seeds oder impliziten Code-Migrationen abhängen.
   Akzeptanz: Versionierte Migrationen laufen transaktional; Demo-Daten sind optional und getrennt.
 
@@ -161,28 +161,28 @@ Die Vite-Warnung zum großen Electron-Renderer-Chunk besteht weiterhin.
 
 ## P3 - Wartbarkeit Und Release-Reife
 
-- [ ] **Renderer-Bundle aufteilen.**
+- [x] **Renderer-Bundle aufteilen.**
   Views dynamisch laden und Bundle-Budget in CI prüfen.
   Akzeptanz: Vite-Chunk-Warnung ist behoben oder bewusst mit Budget dokumentiert.
 
-- [ ] **Electron paketieren, signieren und Release-Prozess definieren.**
+- [x] **Electron paketieren, signieren und Release-Prozess definieren.**
   Installer, Code Signing, Update-Strategie und sichere Release-Pipeline festlegen.
   Akzeptanz: reproduzierbarer Release ohne DevTools/Debug-Schalter.
 
-- [ ] **Preload-Skript bereinigen.**
+- [x] **Preload-Skript bereinigen.**
   Aktuelles Versionen-DOM-Skript entfernen oder auf minimale `contextBridge`-API reduzieren.
   Akzeptanz: Preload enthält nur fachlich benötigte, versionierte Oberfläche.
 
-- [ ] **Projektstruktur und Paketverwaltung entscheiden.**
+- [x] **Projektstruktur und Paketverwaltung entscheiden.**
   npm-Workspaces einführen oder getrennte Teilprojekte bewusst dokumentieren.
   Akzeptanz: reproduzierbare Installation mit einem dokumentierten Root-Befehl.
 
-- [ ] **Linting und Formatierung standardisieren.**
+- [x] **Linting und Formatierung standardisieren.**
   ESLint/Prettier oder gleichwertige Regeln einführen.
   Akzeptanz: `lint`, `typecheck`, `test`, `build` sind im Root ausführbar.
 
-- [ ] **Dokumentation vervollständigen.**
+- [x] **Dokumentation vervollständigen.**
   Architektur, Datenmodell, Rollen, API, Konfiguration, Backup/Restore, Sicherheit und Entwicklungsworkflow dokumentieren.
 
-- [ ] **Design-System dokumentieren.**
+- [x] **Design-System dokumentieren.**
   Farben, Abstände, Typografie, Risikostufen, Statusfarben und Fokuszustände als Tokens festhalten.
